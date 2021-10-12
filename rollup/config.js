@@ -12,6 +12,8 @@ const { terser } = require('rollup-plugin-terser');
 const vue = require('rollup-plugin-vue');
 const frappe_html = require('./frappe-html-plugin');
 const less_loader = require('./less-loader');
+// DFP: Add rollup/json plugin to allow import .json files
+const json = require('@rollup/plugin-json');
 
 const production = process.env.FRAPPE_ENV === 'production';
 
@@ -51,6 +53,8 @@ function get_rollup_options_for_js(output_file, input_files) {
 		ignore_css(),
 		// .vue -> .js
 		vue.default(),
+		// DFP: Add rollup/json plugin to allow import .json files
+		json(),
 		// ES6 -> ES5
 		buble({
 			objectAssign: 'Object.assign',
@@ -74,7 +78,8 @@ function get_rollup_options_for_js(output_file, input_files) {
 			input: input_files,
 			plugins: plugins,
 			context: 'window',
-			external: ['jquery'],
+			// DFP: Added vue to "external",
+			external: ['jquery', 'vue'],
 			onwarn({ code, message, loc, frame }) {
 				// skip warnings
 				if (['EVAL', 'SOURCEMAP_BROKEN', 'NAMESPACE_CONFLICT'].includes(code)) return;
@@ -101,6 +106,8 @@ function get_rollup_options_for_js(output_file, input_files) {
 			name: 'Rollup',
 			globals: {
 				'jquery': 'window.jQuery'
+				// DFP: Added below line
+				,'vue': 'window.Vue',
 			},
 			sourcemap: true
 		}
