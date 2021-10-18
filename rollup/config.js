@@ -58,7 +58,7 @@ function get_rollup_options_for_js(output_file, input_files) {
 		// DFP: Add rollup/json plugin to allow import .json files
 		json(),
 		// DFP: Add replace use rollup-plugin-replace to replace process.env.NODE_ENV
-		replace({'process.env.NODE_ENV': 'production'}),
+		replace({'process.env.NODE_ENV': String('production')}),
 		// ES6 -> ES5
 		buble({
 			objectAssign: 'Object.assign',
