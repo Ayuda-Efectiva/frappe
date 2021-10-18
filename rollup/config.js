@@ -78,8 +78,7 @@ function get_rollup_options_for_js(output_file, input_files) {
 			input: input_files,
 			plugins: plugins,
 			context: 'window',
-			// DFP: Added vue to "external",
-			external: ['jquery', 'vue'],
+			external: ['jquery'],
 			onwarn({ code, message, loc, frame }) {
 				// skip warnings
 				if (['EVAL', 'SOURCEMAP_BROKEN', 'NAMESPACE_CONFLICT'].includes(code)) return;
@@ -106,8 +105,6 @@ function get_rollup_options_for_js(output_file, input_files) {
 			name: 'Rollup',
 			globals: {
 				'jquery': 'window.jQuery'
-				// DFP: Added below line
-				,'vue': 'window.Vue',
 			},
 			sourcemap: true
 		}
