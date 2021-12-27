@@ -300,7 +300,8 @@ def serve(port=8000, profile=False, no_reload=False, no_threading=False, site=No
 	patch_werkzeug_reloader()
 
 	if profile:
-		application = ProfilerMiddleware(application, sort_by=('cumtime', 'calls'))
+		# DFP: added profile folder
+		application = ProfilerMiddleware(application, sort_by=('cumtime', 'calls'), profile_dir="../prof/")
 
 	if not os.environ.get('NO_STATICS'):
 		application = SharedDataMiddleware(application, {
