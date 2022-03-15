@@ -133,7 +133,13 @@ def get_static_file_response():
 def build_response(path, data, http_status_code, headers=None):
 	# build response
 	response = Response()
-	response.data = set_content_type(response, data, path)
+	# DFP fix 404 error for requests for /non-existent-files.gif
+	if http_status_code == 404:
+		response.mimetype = "text/html"
+		response.charset = "utf-8"
+		response.data = data
+	else:
+		response.data = set_content_type(response, data, path)
 	response.status_code = http_status_code
 	response.headers["X-Page-Name"] = path.encode("ascii", errors="xmlcharrefreplace")
 	response.headers["X-From-Cache"] = frappe.local.response.from_cache or False
