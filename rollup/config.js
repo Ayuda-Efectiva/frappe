@@ -4,7 +4,7 @@ const chalk = require('chalk');
 const log = console.log; // eslint-disable-line
 
 const multi_entry = require('rollup-plugin-multi-entry');
-const commonjs = require('rollup-plugin-commonjs');
+// const commonjs = require('rollup-plugin-commonjs');
 const node_resolve = require('rollup-plugin-node-resolve');
 const postcss = require('rollup-plugin-postcss');
 const buble = require('rollup-plugin-buble');
@@ -16,6 +16,8 @@ const less_loader = require('./less-loader');
 const json = require('@rollup/plugin-json');
 // DFP: Add rollup/replace plugin
 const replace = require('@rollup/plugin-replace');
+// DFP: Updated commonjs plugin
+const commonjs = require('@rollup/plugin-commonjs');
 
 const production = process.env.FRAPPE_ENV === 'production';
 
