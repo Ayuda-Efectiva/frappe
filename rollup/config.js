@@ -16,8 +16,8 @@ const less_loader = require('./less-loader');
 const json = require('@rollup/plugin-json');
 // DFP: Add rollup/replace plugin
 const replace = require('@rollup/plugin-replace');
-// DFP: Updated commonjs plugin
-const commonjs = require('@rollup/plugin-commonjs');
+// // DFP: Updated commonjs plugin
+// const commonjs = require('@rollup/plugin-commonjs');
 
 const production = process.env.FRAPPE_ENV === 'production';
 
@@ -75,7 +75,7 @@ function get_rollup_options_for_js(output_file, input_files) {
 			},
 			exclude: [path.resolve(bench_path, '**/*.css'), path.resolve(bench_path, '**/*.less')]
 		}),
-		commonjs(),
+		// commonjs(),
 		node_resolve({
 			customResolveOptions: {
 				paths: node_resolve_paths
