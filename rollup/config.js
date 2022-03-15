@@ -15,7 +15,7 @@ const less_loader = require('./less-loader');
 // DFP: Add rollup/json plugin to allow import .json files
 const json = require('@rollup/plugin-json');
 // DFP: Add rollup/replace plugin
-const replace = require('rollup-plugin-replace');
+const replace = require('@rollup/plugin-replace');
 
 const production = process.env.FRAPPE_ENV === 'production';
 
