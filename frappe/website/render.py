@@ -133,8 +133,10 @@ def get_static_file_response():
 def build_response(path, data, http_status_code, headers=None):
 	# build response
 	response = Response()
-	# DFP fix 404 error for requests for /non-existent-files.gif
-	if http_status_code == 404:
+	# DFP: fix 404 error for requests for /non-existent-files.gif
+	# DFP: fix ('unknown encoding: gzip') within requests like "sitemap.xml.[gz|tgz]"
+	#      where set_content_type and encoding gzip makes no sense
+	if http_status_code != 200:
 		response.mimetype = "text/html"
 		response.charset = "utf-8"
 		response.data = data
