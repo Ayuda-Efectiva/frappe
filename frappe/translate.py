@@ -135,7 +135,7 @@ def set_default_language(lang):
 
 def get_lang_dict():
 	"""Returns all languages in dict format, full name is the key e.g. `{"english":"en"}`"""
-	return dict(frappe.db.sql('select language_name, name from tabLanguage'))
+	return dict(frappe.db.sql('select language_name, name from tabLanguage where enabled = 1'))
 
 def get_dict(fortype, name=None):
 	"""Returns translation dict for a type of object.
