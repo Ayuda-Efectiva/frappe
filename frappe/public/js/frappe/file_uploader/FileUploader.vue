@@ -65,7 +65,7 @@
 					</button>
 					<button v-if="google_drive_settings.enabled" class="btn btn-file-upload" @click="show_google_drive_picker">
 						<svg width="30" height="30">
-							<image xlink:href="/assets/frappe/icons/social/google_drive.svg" width="30" height="30"/>
+							<image href="/assets/frappe/icons/social/google_drive.svg" width="30" height="30"/>
 						</svg>
 						<div class="mt-1">{{ __('Google Drive') }}</div>
 					</button>
@@ -457,11 +457,13 @@ export default {
 				error: true
 			});
 			capture.show();
-			capture.submit(data_url => {
-				let filename = `capture_${frappe.datetime.now_datetime().replaceAll(/[: -]/g, '_')}.png`;
-				this.url_to_file(data_url, filename, 'image/png').then((file) =>
-					this.add_files([file])
-				);
+			capture.submit(data_urls => {
+				data_urls.forEach(data_url => {
+					let filename = `capture_${frappe.datetime.now_datetime().replaceAll(/[: -]/g, '_')}.png`;
+					this.url_to_file(data_url, filename, 'image/png').then((file) =>
+						this.add_files([file])
+					);
+				});
 			});
 		},
 		show_google_drive_picker() {

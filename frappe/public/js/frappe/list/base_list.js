@@ -120,7 +120,7 @@ frappe.views.BaseList = class BaseList {
 			// df is passed
 			const df = fieldname;
 			fieldname = df.fieldname;
-			doctype = df.parent;
+			doctype = df.parent || doctype;
 		}
 
 		if (!this.fields) this.fields = [];
@@ -235,7 +235,7 @@ frappe.views.BaseList = class BaseList {
 				item.shortcut
 			);
 			if (item.class) {
-				$item && $item.addClass(item.class);
+				$item[0] && $item.addClass(item.class);
 			}
 		});
 	}
