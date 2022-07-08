@@ -162,8 +162,9 @@ def set_default_language(lang):
 
 def get_lang_dict():
 	"""Returns all languages in dict format, full name is the key e.g. `{"english":"en"}`"""
+	# DFP. Added filter enabled=1
 	return dict(
-		frappe.get_all("Language", fields=["language_name", "name"], order_by=None, as_list=True)
+		frappe.get_all("Language", fields=["language_name", "name"], filters=dict(enabled=1), order_by=None, as_list=True)
 	)
 
 

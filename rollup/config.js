@@ -15,7 +15,7 @@ const less_loader = require('./less-loader');
 // DFP: Add rollup/json plugin to allow import .json files
 const json = require('@rollup/plugin-json');
 // DFP: Add rollup/replace plugin
-const replace = require('rollup-plugin-replace');
+const replace = require('@rollup/plugin-replace');
 
 const production = process.env.FRAPPE_ENV === 'production';
 
@@ -58,7 +58,12 @@ function get_rollup_options_for_js(output_file, input_files) {
 		// DFP: Add rollup/json plugin to allow import .json files
 		json(),
 		// DFP: Add replace use rollup-plugin-replace to replace process.env.NODE_ENV
-		replace({'process.env.NODE_ENV': JSON.stringify('production')}),
+		replace({
+			preventAssignment: true,
+			values: {
+				'process.env.NODE_ENV': JSON.stringify('production'),
+			},
+		}),
 		// ES6 -> ES5
 		buble({
 			objectAssign: 'Object.assign',
