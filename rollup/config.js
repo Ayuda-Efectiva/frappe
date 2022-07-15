@@ -16,6 +16,8 @@ const less_loader = require('./less-loader');
 const json = require('@rollup/plugin-json');
 // DFP: Add rollup/replace plugin
 const replace = require('@rollup/plugin-replace');
+// DFP: Add rollup plugin for convert ES2017 async/await with nodent
+const nodent = require('rollup-plugin-nodent');
 
 const production = process.env.FRAPPE_ENV === 'production';
 
@@ -57,6 +59,8 @@ function get_rollup_options_for_js(output_file, input_files) {
 		vue.default(),
 		// DFP: Add rollup/json plugin to allow import .json files
 		json(),
+		// DFP: Promisify all async functions to avoid issues with old browsers (Android mainly)
+		nodent(),
 		// DFP: Add replace use rollup-plugin-replace to replace process.env.NODE_ENV
 		replace({
 			preventAssignment: true,
