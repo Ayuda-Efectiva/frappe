@@ -56,7 +56,8 @@ class DataImport(Document):
 		from frappe.core.page.background_jobs.background_jobs import get_info
 		from frappe.utils.scheduler import is_scheduler_inactive
 
-		if is_scheduler_inactive() and not frappe.flags.in_test:
+		# DFP not needed the scheduler test if we are in developer_mode too
+		if is_scheduler_inactive() and not frappe.flags.in_test and not frappe.conf.developer_mode:
 			frappe.throw(_("Scheduler is inactive. Cannot import data."), title=_("Scheduler Inactive"))
 
 		enqueued_jobs = [d.get("job_name") for d in get_info()]
