@@ -295,6 +295,9 @@ def update_global_search(doc):
 
 
 def update_global_search_for_all_web_pages():
+	print("DFP DISABLED. It seems deprecated because other search method is used \
+		(frappe.search.website_search) and only called in tests (test_web_page_index)")
+	return
 	if frappe.conf.get("disable_global_search"):
 		return
 
@@ -518,6 +521,10 @@ def web_search(text, scope=None, start=0, limit=20):
 	:param limit: number of results to return, default 20
 	:return: Array of result objects
 	"""
+
+	# DFP búsqueda para la web pública. Deshabilitado por seguridad. Parece deprecado
+	# porque se usa otro sistema de búsqueda: frappe.search.website_search
+	return []
 
 	results = []
 	texts = text.split("&")
