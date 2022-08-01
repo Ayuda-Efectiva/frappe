@@ -194,7 +194,11 @@ def make_form_dict(request):
 
 	request_data = request.get_data(as_text=True)
 	if "application/json" in (request.content_type or "") and request_data:
-		args = json.loads(request_data)
+		# DFP. Avoid confusing snapshot errors + Sentry not useful logging when request has invalid json data
+		try:
+			args = json.loads(request_data)
+		except:
+			args = None
 	else:
 		args = {}
 		args.update(request.args or {})
