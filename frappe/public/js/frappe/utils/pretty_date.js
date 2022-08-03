@@ -81,7 +81,9 @@ frappe.datetime.comment_when = comment_when;
 frappe.datetime.prettyDate = prettyDate;
 
 frappe.datetime.refresh_when = function() {
-	if (jQuery) {
+	// DFP. avoid error if jQuery is not defined (it happens :)
+	// if (jQuery) {
+	if (typeof jQuery != 'undefined') {
 		$(".frappe-timestamp").each(function() {
 			$(this).html(prettyDate($(this).attr("data-timestamp"), $(this).hasClass("mini")));
 		});

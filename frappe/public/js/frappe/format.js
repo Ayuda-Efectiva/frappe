@@ -16,6 +16,8 @@ function format (str, args) {
 	}.bind(this));
 }
 
-if (jQuery) {
+// DFP. avoid error if jQuery is not defined (it happens :)
+// if (jQuery) {
+if (typeof jQuery != 'undefined') {
 	jQuery.format = format
 }
