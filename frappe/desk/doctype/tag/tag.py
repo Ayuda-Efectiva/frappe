@@ -39,7 +39,16 @@ def add_tags(tags, dt, docs, color=None):
 		for tag in tags:
 			DocTags(dt).add(doc, tag)
 
-	# return tag
+
+# DFP. Remove tags integration
+@frappe.whitelist()
+def remove_tags(tags, dt, docs, color=None):
+	"Remove tags from a record"
+	tags = frappe.parse_json(tags)
+	docs = frappe.parse_json(docs)
+	for doc in docs:
+		for tag in tags:
+			DocTags(dt).remove(doc, tag)
 
 
 @frappe.whitelist()

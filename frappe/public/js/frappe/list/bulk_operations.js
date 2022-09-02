@@ -336,4 +336,44 @@ export default class BulkOperations {
 		});
 		dialog.show();
 	}
+
+
+	// DFP. Remove tags integration
+	remove_tags (docnames, done) {
+		const dialog = new frappe.ui.Dialog({
+			title: __('Remove Tags'),
+			fields: [
+				{
+					fieldtype: 'MultiSelectPills',
+					fieldname: 'tags',
+					label: __("Tags"),
+					reqd: true,
+					get_data: function (txt) {
+						return frappe.db.get_link_options("Tag", txt);
+					}
+				},
+			],
+			primary_action_label: __("Remove"),
+			primary_action: () => {
+				let args = dialog.get_values();
+				if (args && args.tags) {
+					dialog.set_message("Removing Tags...");
+
+					frappe.call({
+						method: "frappe.desk.doctype.tag.tag.remove_tags",
+						args: {
+							'tags': args.tags,
+							'dt': this.doctype,
+							'docs': docnames,
+						},
+						callback: () => {
+							dialog.hide();
+							done();
+						}
+					});
+				}
+			},
+		});
+		dialog.show();
+	}
 }
