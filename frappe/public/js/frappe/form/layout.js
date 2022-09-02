@@ -705,10 +705,13 @@ frappe.ui.form.Column = Class.extend({
 		this.resize_all_columns();
 	},
 	make: function () {
-		this.wrapper = $('<div class="form-column">\
-			<form>\
-			</form>\
-		</div>').appendTo(this.section.body)
+		// DFP Allow hidden columns (mainly when customizing docs)
+		// this.wrapper = $('<div class="form-column">\
+		// 	<form>\
+		// 	</form>\
+		// </div>').appendTo(this.section.body)
+		this.wrapper = $(`<div class="form-column${(this.df.hidden?' hidden':'')}">`
+			+'<form></form></div>').appendTo(this.section.body)
 			.find("form")
 			.on("submit", function () {
 				return false;
@@ -721,7 +724,9 @@ frappe.ui.form.Column = Class.extend({
 	},
 	resize_all_columns: function () {
 		// distribute all columns equally
-		var colspan = cint(12 / this.section.wrapper.find(".form-column").length);
+		// DFP Allow hidden columns (when customizing doctypes and you want to hide any field)
+		// var colspan = cint(12 / this.section.wrapper.find(".form-column").length);
+		var colspan = cint(12 / this.section.wrapper.find(".form-column:not(.hidden)").length);
 
 		this.section.wrapper.find(".form-column").removeClass()
 			.addClass("form-column")
