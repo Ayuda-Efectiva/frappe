@@ -426,13 +426,18 @@ $.extend(frappe, {
 	}
 });
 
-frappe.setup_search = function (target, search_scope) {
+// DFP. Improvements as custom limit, translated "No results found...",
+// … before and after matched text preview, custom placeholder text, autocomplete off
+frappe.setup_search = function (target, search_scope, limit=5, placeholder='') {
 	if (typeof target === "string") {
 		target = $(target);
 	}
 
+	let placeholder_text = placeholder || __('Search the docs (Press / to focus)')
+
+	// DFP customizable && translatable input placeholder
 	let $search_input = $(`<div class="dropdown" id="dropdownMenuSearch">
-			<input type="search" class="form-control" placeholder="Search the docs (Press / to focus)" />
+			<input type="search" class="form-control" autocomplete="off" placeholder="${placeholder_text}" />
 			<div class="overflow-hidden shadow dropdown-menu w-100" aria-labelledby="dropdownMenuSearch">
 			</div>
 			<div class="search-icon">
@@ -477,18 +482,22 @@ frappe.setup_search = function (target, search_scope) {
 			args: {
 				scope: search_scope || null,
 				query: $input.val(),
-				limit: 5
+				// DFP customizable limit
+				// limit: 5
+				limit: limit
 			}
 		}).then(r => {
 			let results = r.message || [];
 			let dropdown_html;
 			if (results.length == 0) {
-				dropdown_html = `<div class="dropdown-item">No results found</div>`;
+				// DFP translatable no results found message
+				// dropdown_html = `<div class="dropdown-item">No results found</div>`;
+				dropdown_html = `<div class="dropdown-item">${__('No results found for "{0}"', [$input.val()])}</div>`;
 			} else {
 				dropdown_html = results.map(r => {
 					return `<a class="dropdown-item" href="/${r.path}">
 						<h6>${r.title_highlights || r.title}</h6>
-						<div style="white-space: normal;">${r.content_highlights}</div>
+						<div style="white-space: normal;">…${r.content_highlights}…</div>
 					</a>`;
 				}).join('');
 			}
