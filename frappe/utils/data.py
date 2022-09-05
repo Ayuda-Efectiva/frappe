@@ -1814,7 +1814,13 @@ def md_to_html(markdown_text):
 
 	html = None
 	try:
-		html = UnicodeWithAttrs(_markdown(markdown_text or "", extras=extras))
+		# DFP. feat add extra markdown params and per app customization, like jenv
+		# html = UnicodeWithAttrs(_markdown(markdown_text or "", extras=extras))
+		extras_extended = frappe.conf.get("markdown", {}).get("extras", extras)
+		footnote_title = frappe.conf.get("markdown", {}).get("footnote_title", None)
+		footnote_return_symbol = frappe.conf.get("markdown", {}).get("footnote_return_symbol", None)
+		html = UnicodeWithAttrs(_markdown(markdown_text or "", extras=extras_extended,
+			footnote_title=footnote_title, footnote_return_symbol=footnote_return_symbol))
 	except MarkdownError:
 		pass
 
