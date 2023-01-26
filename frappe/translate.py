@@ -87,7 +87,10 @@ def get_language(lang_list: List = None) -> str:
 	if is_logged_in:
 		return frappe.local.lang
 
-	lang_set = set(lang_list or get_all_languages() or [])
+	# <DFP. Allow only enabled languages
+	# lang_set = set(lang_list or get_all_languages() or [])
+	lang_set = set(get_lang_dict().values() or [])
+	# DFP>
 
 	# fetch language from cookie
 	preferred_language_cookie = get_preferred_language_cookie()
