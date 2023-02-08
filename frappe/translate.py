@@ -82,7 +82,8 @@ def get_language(lang_list: list = None) -> str:
 	if is_logged_in:
 		return frappe.local.lang
 
-	lang_set = set(lang_list or get_all_languages() or [])
+	# DFP. Allow only enabled languages
+	lang_set = set(lang_list or get_lang_dict(enabled_only=True).values() or [])
 
 	# fetch language from cookie
 	preferred_language_cookie = get_preferred_language_cookie()
@@ -155,10 +156,13 @@ def set_default_language(lang):
 	frappe.local.lang = lang
 
 
-def get_lang_dict():
+def get_lang_dict(enabled_only=False):
 	"""Returns all languages in dict format, full name is the key e.g. `{"english":"en"}`"""
+	# DFP. Allow only enabled languages
 	return dict(
-		frappe.get_all("Language", fields=["language_name", "name"], order_by="modified", as_list=True)
+		frappe.get_all("Language", fields=["language_name", "name"],
+			filters={"enabled": 1} if enabled_only else {},
+			order_by=None, as_list=True)
 	)
 
 
