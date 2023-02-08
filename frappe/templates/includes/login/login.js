@@ -156,7 +156,8 @@ login.set_status = function (message, color) {
 
 login.set_invalid = function (message) {
 	$(".login-content.page-card").addClass('invalid-login');
-	setTimeout(() => {
+	// DFP fix for browsers not supporting () => {}
+	setTimeout(function () {
 		$(".login-content.page-card").removeClass('invalid-login');
 	}, 500)
 	login.set_status(message, 'red');

@@ -224,7 +224,11 @@ def make_form_dict(request):
 
 	request_data = request.get_data(as_text=True)
 	if "application/json" in (request.content_type or "") and request_data:
-		args = json.loads(request_data)
+		# DFP. Avoid confusing snapshot errors + Sentry not useful logging when request has invalid json data
+		try:
+			args = json.loads(request_data)
+		except:
+			args = {}
 	else:
 		args = {}
 		args.update(request.args or {})
@@ -365,7 +369,8 @@ def serve(
 	from werkzeug.serving import run_simple
 
 	if profile or os.environ.get("USE_PROFILER"):
-		application = ProfilerMiddleware(application, sort_by=("cumtime", "calls"))
+		# DFP: added profile folder
+		application = ProfilerMiddleware(application, sort_by=("cumtime", "calls"), profile_dir="../prof/")
 
 	if not os.environ.get("NO_STATICS"):
 		application = SharedDataMiddleware(

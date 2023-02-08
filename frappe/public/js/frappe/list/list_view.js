@@ -1704,6 +1704,19 @@ frappe.views.ListView = class ListView extends frappe.views.BaseList {
 			};
 		};
 
+		// DFP. Remove tags integration
+		const bulk_remove_tags = () => {
+			return {
+				label: __("Remove Tags", null, "Button in list view actions menu"),
+				action: () =>
+					bulk_operations.remove_tags(
+						this.get_checked_items(true),
+						this.refresh
+					),
+				standard: true,
+			};
+		};
+
 		const bulk_printing = () => {
 			return {
 				label: __("Print", null, "Button in list view actions menu"),
@@ -1846,6 +1859,9 @@ frappe.views.ListView = class ListView extends frappe.views.BaseList {
 		actions_menu_items.push(bulk_assignment_rule());
 
 		actions_menu_items.push(bulk_add_tags());
+
+		// DFP. Remove tags integration
+		actions_menu_items.push(bulk_remove_tags());
 
 		// bulk printing
 		if (frappe.model.can_print(doctype)) {

@@ -47,6 +47,17 @@ def remove_tag(tag, dt, dn):
 	DocTags(dt).remove(dn, tag)
 
 
+# DFP. Remove tags integration
+@frappe.whitelist()
+def remove_tags(tags, dt, docs, color=None):
+	"Remove tags from a record"
+	tags = frappe.parse_json(tags)
+	docs = frappe.parse_json(docs)
+	for doc in docs:
+		for tag in tags:
+			DocTags(dt).remove(doc, tag)
+
+
 @frappe.whitelist()
 def get_tagged_docs(doctype, tag):
 	frappe.has_permission(doctype, throw=True)
