@@ -154,6 +154,8 @@ frappe.palette = [
 ];
 
 frappe.get_palette = function (txt) {
+	// DFP fix if no txt passed
+	if (!txt) return frappe.palette[0]
 	var idx = cint((parseInt(md5(txt).substr(4, 2), 16) + 1) / 5.33);
 	return frappe.palette[idx % 8];
 };
