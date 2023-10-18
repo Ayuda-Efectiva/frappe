@@ -57,7 +57,7 @@ class WebsiteAnalytics:
 				Coalesce(WebPageView.creation, "0001-01-01")[self.filters.from_date : self.filters.to_date]
 			)
 			.groupby(WebPageView.path)
-			.orderby("count", Order=frappe.qb.desc)
+			.orderby("count", order=frappe.qb.desc)
 		).run()
 
 	def _get_query_for_mariadb(self):
