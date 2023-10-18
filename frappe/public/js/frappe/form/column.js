@@ -33,9 +33,15 @@ export default class Column {
 
 	resize_all_columns() {
 		// distribute all columns equally
+
 		// DFP Allow hidden columns (when customizing doctypes and you want to hide any field)
-		// var colspan = cint(12 / this.section.wrapper.find(".form-column").length);
-		var colspan = cint(12 / this.section.wrapper.find(".form-column:not(.hidden)").length);
+		// let columns = this.section.wrapper.find(".form-column").length;
+		let columns = this.section.wrapper.find(".form-column:not(.hidden)").length;
+		let colspan = cint(12 / columns);
+
+		if (columns == 5) {
+			colspan = 20;
+		}
 
 		this.section.wrapper
 			.find(".form-column")

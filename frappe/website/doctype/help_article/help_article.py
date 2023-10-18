@@ -3,6 +3,7 @@
 
 import frappe
 from frappe import _
+from frappe.rate_limiter import rate_limit
 from frappe.utils import cint, is_markdown, markdown
 from frappe.website.utils import get_comment_list
 from frappe.website.website_generator import WebsiteGenerator
@@ -112,9 +113,15 @@ def clear_website_cache(path=None):
 
 # DFP. Added rate limiter to avoid spam
 @frappe.whitelist(allow_guest=True)
-@rate_limit(key="article", limit=1)
-def add_feedback(article, helpful):
+@rate_limit(key="article", limit=5, seconds=60 * 60)
+def add_feedback(article: str, helpful: str):
+	if not isinstance("article", str):
+		frappe.throw(_("Invalid Article Name"))
+
 	# DFP. Fields not_helpful and helpful does not exist in Doctype :/ so updated to field "likes"
+	# field = "not_helpful" if helpful == "No" else "helpful"
+	# value = cint(frappe.db.get_value("Help Article", article, field))
+	# frappe.db.set_value("Help Article", article, field, value + 1, update_modified=False)
 	update = -1 if helpful == "No" else (1 if helpful == "Yes" else 0)
 	value = cint(frappe.db.get_value("Help Article", article, "likes"))
 	frappe.db.set_value("Help Article", article, "likes", value + update, update_modified=False)

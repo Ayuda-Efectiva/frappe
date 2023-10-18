@@ -363,7 +363,12 @@ def send_workflow_action_email(users_data, doc):
 			"reference_doctype": doc.doctype,
 		}
 		email_args.update(common_args)
-		enqueue(method=frappe.sendmail, queue="short", **email_args)
+		try:
+			frappe.sendmail(**email_args)
+		except frappe.OutgoingEmailError:
+			# Emails config broken, don't bother retrying next user.
+			frappe.log_error("Failed to send workflow action email")
+			return
 
 
 def deduplicate_actions(action_list):
@@ -444,7 +449,9 @@ def filter_allowed_users(users, doc, transition):
 
 	filtered_users = []
 	for user in users:
-		if has_approval_access(user, doc, transition) and has_permission(doctype=doc, user=user):
+		if has_approval_access(user, doc, transition) and has_permission(
+			doctype=doc, user=user, raise_exception=False
+		):
 			filtered_users.append(user)
 	return filtered_users
 

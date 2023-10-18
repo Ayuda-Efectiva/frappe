@@ -36,8 +36,9 @@ frappe.ui.form.States = class FormStates {
 						).join(", ") || __("None: End of Workflow").bold();
 
 					const document_editable_by = frappe.workflow
-						.get_document_state(me.frm.doctype, state)
-						.allow_edit.bold();
+						.get_document_state_roles(me.frm.doctype, state)
+						.map((role) => role.bold())
+						.join(", ");
 
 					$(d.body)
 						.html(
@@ -102,6 +103,7 @@ frappe.ui.form.States = class FormStates {
 					added = true;
 					me.frm.page.add_action_item(__(d.action), function () {
 						// set the workflow_action for use in form scripts
+						frappe.dom.freeze();
 						me.frm.selected_workflow_action = d.action;
 						me.frm.script_manager.trigger("before_workflow_action").then(() => {
 							frappe
@@ -114,6 +116,9 @@ frappe.ui.form.States = class FormStates {
 									me.frm.refresh();
 									me.frm.selected_workflow_action = null;
 									me.frm.script_manager.trigger("after_workflow_action");
+								})
+								.finally(() => {
+									frappe.dom.unfreeze();
 								});
 						});
 					});

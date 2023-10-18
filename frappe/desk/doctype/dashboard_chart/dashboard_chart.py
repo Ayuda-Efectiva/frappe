@@ -79,17 +79,16 @@ def has_permission(doc, ptype, user):
 	if "System Manager" in roles:
 		return True
 
-	if doc.chart_type == "Report":
+	if doc.roles:
+		allowed = [d.role for d in doc.roles]
+		if has_common(roles, allowed):
+			return True
+	elif doc.chart_type == "Report":
 		if doc.report_name in get_allowed_report_names():
 			return True
 	else:
 		allowed_doctypes = frappe.permissions.get_doctypes_with_read()
 		if doc.document_type in allowed_doctypes:
-			return True
-
-	if doc.roles:
-		allowed = [d.role for d in doc.roles]
-		if has_common(roles, allowed):
 			return True
 
 	return False
@@ -278,15 +277,14 @@ def get_group_by_chart_config(chart, filters):
 	group_by_field = chart.group_by_based_on
 	doctype = chart.document_type
 
-	data = frappe.db.get_list(
+	data = frappe.get_list(
 		doctype,
 		fields=[
 			f"{group_by_field} as name",
-			"{aggregate_function}({value_field}) as count".format(
-				aggregate_function=aggregate_function, value_field=value_field
-			),
+			f"{aggregate_function}({value_field}) as count",
 		],
 		filters=filters,
+		parent_doctype=chart.parent_document_type,
 		group_by=group_by_field,
 		order_by="count desc",
 		ignore_ifnull=True,

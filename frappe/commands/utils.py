@@ -22,7 +22,11 @@ DATA_IMPORT_DEPRECATION = (
 @click.option("--app", help="Build assets for app")
 @click.option("--apps", help="Build assets for specific apps")
 @click.option(
-	"--hard-link", is_flag=True, default=False, help="Copy the files instead of symlinking"
+	"--hard-link",
+	is_flag=True,
+	default=False,
+	help="Copy the files instead of symlinking",
+	envvar="FRAPPE_HARD_LINK_ASSETS",
 )
 @click.option(
 	"--make-copy",
@@ -257,9 +261,8 @@ def execute(context, method, args=None, kwargs=None, profile=False):
 			try:
 				ret = frappe.get_attr(method)(*args, **kwargs)
 			except Exception:
-				ret = frappe.safe_eval(
-					method + "(*args, **kwargs)", eval_globals=globals(), eval_locals=locals()
-				)
+				# eval is safe here because input is from console
+				ret = eval(method + "(*args, **kwargs)", globals(), locals())  # nosemgrep
 
 			if profile:
 				import pstats
@@ -908,10 +911,10 @@ def run_ui_tests(
 		click.secho("Installing Cypress...", fg="yellow")
 		packages = " ".join(
 			[
-				"cypress@^10",
+				"cypress@^13",
 				"@4tw/cypress-drag-drop@^2",
 				"cypress-real-events",
-				"@testing-library/cypress@^8",
+				"@testing-library/cypress@^10",
 				"@testing-library/dom@8.17.1",
 				"@cypress/code-coverage@^3",
 			]

@@ -153,10 +153,12 @@ def get_context(context):
 			and not frappe.form_dict.name
 			and not frappe.form_dict.is_list
 		):
-			name = frappe.db.get_value(self.doc_type, {"owner": frappe.session.user}, "name")
-			if name:
+			condition_json = json.loads(self.condition_json) if self.condition_json else []
+			condition_json.append(["owner", "=", frappe.session.user])
+			names = frappe.get_all(self.doc_type, filters=condition_json, pluck="name")
+			if names:
 				context.in_view_mode = True
-				frappe.redirect(f"/{self.route}/{name}")
+				frappe.redirect(f"/{self.route}/{names[0]}")
 
 		# Show new form when
 		# - User is Guest
@@ -377,7 +379,7 @@ def get_web_form_module(doc):
 
 
 @frappe.whitelist(allow_guest=True)
-@rate_limit(key="web_form", limit=5, seconds=60, methods=["POST"])
+@rate_limit(key="web_form", limit=5, seconds=60)
 def accept(web_form, data):
 	"""Save the web form"""
 	data = frappe._dict(json.loads(data))
@@ -387,6 +389,10 @@ def accept(web_form, data):
 
 	web_form = frappe.get_doc("Web Form", web_form)
 	doctype = web_form.doc_type
+	user = frappe.session.user
+
+	if web_form.anonymous and frappe.session.user != "Guest":
+		frappe.session.user = "Guest"
 
 	if data.name and not web_form.allow_edit:
 		frappe.throw(_("You are not allowed to update this Web Form Document"))
@@ -467,6 +473,9 @@ def accept(web_form, data):
 		for f in files_to_delete:
 			if f:
 				remove_file_by_url(f, doctype=doctype, name=doc.name)
+
+	if web_form.anonymous and frappe.session.user == "Guest" and user:
+		frappe.session.user = user
 
 	frappe.flags.web_form_doc = doc
 	return doc

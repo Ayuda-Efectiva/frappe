@@ -47,6 +47,8 @@ frappe.ui.Filter = class {
 			Color: ["Between", "Timespan"],
 			Check: this.conditions.map((c) => c[0]).filter((c) => c !== "="),
 			Code: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+			"HTML Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
+			"Markdown Editor": ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
 			Password: ["Between", "Timespan", ">", "<", ">=", "<=", "in", "not in"],
 			Rating: ["like", "not like", "Between", "in", "not in", "Timespan"],
 		};
@@ -416,7 +418,7 @@ frappe.ui.filter_utils = {
 	get_selected_value(field, condition) {
 		if (!field) return;
 
-		let val = field.get_value();
+		let val = field.get_value() || field.value;
 
 		if (typeof val === "string") {
 			val = strip(val);
@@ -506,6 +508,7 @@ frappe.ui.filter_utils = {
 				"HTML Editor",
 				"Tag",
 				"Phone",
+				"JSON",
 				"Comments",
 				"Barcode",
 				"Dynamic Link",

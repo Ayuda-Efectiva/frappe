@@ -200,8 +200,8 @@ class MariaDBDatabase(MariaDBConnectionUtil, MariaDBExceptionUtil, Database):
 		return db_size[0].get("database_size")
 
 	def log_query(self, query, values, debug, explain):
-		self.last_query = query = self._cursor._last_executed
-		self._log_query(query, debug, explain)
+		self.last_query = self._cursor._executed
+		self._log_query(self.last_query, debug, explain, query)
 		return self.last_query
 
 	@staticmethod
@@ -248,6 +248,20 @@ class MariaDBDatabase(MariaDBConnectionUtil, MariaDBExceptionUtil, Database):
 		table_name = get_table_name(doctype)
 		null_constraint = "NOT NULL" if not nullable else ""
 		return self.sql_ddl(f"ALTER TABLE `{table_name}` MODIFY `{column}` {type} {null_constraint}")
+
+	def rename_column(self, doctype: str, old_column_name, new_column_name):
+		current_data_type = self.get_column_type(doctype, old_column_name)
+
+		table_name = get_table_name(doctype)
+
+		frappe.db.sql_ddl(
+			f"""ALTER TABLE `{table_name}`
+				CHANGE COLUMN `{old_column_name}`
+				`{new_column_name}`
+				{current_data_type}"""
+			# ^ Mariadb requires passing current data type again even if there's no change
+			# This requirement is gone from v10.5
+		)
 
 	def create_auth_table(self):
 		self.sql_ddl(

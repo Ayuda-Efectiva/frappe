@@ -34,14 +34,30 @@ Cypress.Commands.add("login", (email, password) => {
 	if (!password) {
 		password = Cypress.env("adminPassword");
 	}
-	cy.request({
-		url: "/api/method/login",
-		method: "POST",
-		body: {
-			usr: email,
-			pwd: password,
-		},
-	});
+	// cy.session clears all localStorage on new login, so we need to retain the last route
+	const session_last_route = window.localStorage.getItem("session_last_route");
+	return cy
+		.session(
+			[email, password] || "",
+			() => {
+				return cy.request({
+					url: "/api/method/login",
+					method: "POST",
+					body: {
+						usr: email,
+						pwd: password,
+					},
+				});
+			},
+			{
+				cacheAcrossSpecs: true,
+			}
+		)
+		.then(() => {
+			if (session_last_route) {
+				window.localStorage.setItem("session_last_route", session_last_route);
+			}
+		});
 });
 
 Cypress.Commands.add("call", (method, args) => {
@@ -62,6 +78,9 @@ Cypress.Commands.add("call", (method, args) => {
 				})
 				.then((res) => {
 					expect(res.status).eq(200);
+					if (method === "logout") {
+						Cypress.session.clearAllSavedSessions();
+					}
 					return res.body;
 				});
 		});
@@ -367,6 +386,45 @@ Cypress.Commands.add("update_doc", (doctype, docname, args) => {
 		});
 });
 
+Cypress.Commands.add("switch_to_user", (user) => {
+	cy.call("logout");
+	cy.login(user);
+});
+
+Cypress.Commands.add("add_role", (user, role) => {
+	cy.window()
+		.its("frappe")
+		.then((frappe) => {
+			const session_user = frappe.session.user;
+			add_remove_role("add", user, role, session_user);
+		});
+});
+
+Cypress.Commands.add("remove_role", (user, role) => {
+	cy.window()
+		.its("frappe")
+		.then((frappe) => {
+			const session_user = frappe.session.user;
+			add_remove_role("remove", user, role, session_user);
+		});
+});
+
+const add_remove_role = (action, user, role, session_user) => {
+	if (session_user !== "Administrator") {
+		cy.switch_to_user("Administrator");
+	}
+
+	cy.call("frappe.tests.ui_test_helpers.add_remove_role", {
+		action: action,
+		user: user,
+		role: role,
+	});
+
+	if (session_user !== "Administrator") {
+		cy.switch_to_user(session_user);
+	}
+};
+
 Cypress.Commands.add("open_list_filter", () => {
 	cy.get(".filter-section .filter-button").click();
 	cy.wait(300);
@@ -436,7 +494,7 @@ Cypress.Commands.add("click_listview_row_item_with_text", (text) => {
 });
 
 Cypress.Commands.add("click_filter_button", () => {
-	cy.get(".filter-selector > .btn").click();
+	cy.get(".filter-button").click();
 });
 
 Cypress.Commands.add("click_listview_primary_button", (btn_name) => {

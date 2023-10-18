@@ -16,6 +16,7 @@ from frappe import _
 from frappe.cache_manager import clear_controller_cache, clear_user_cache
 from frappe.custom.doctype.custom_field.custom_field import create_custom_field
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
+from frappe.database import savepoint
 from frappe.database.schema import validate_column_length, validate_column_name
 from frappe.desk.notifications import delete_notification_count_for, get_filters_for
 from frappe.desk.utils import validate_route_conflict
@@ -33,7 +34,7 @@ from frappe.model.meta import Meta
 from frappe.modules import get_doc_path, make_boilerplate
 from frappe.modules.import_file import get_file_path
 from frappe.query_builder.functions import Concat
-from frappe.utils import cint, random_string
+from frappe.utils import cint, is_a_property, random_string
 from frappe.website.utils import clear_cache
 
 if TYPE_CHECKING:
@@ -154,9 +155,7 @@ class DocType(Document):
 			controller = Document
 
 		available_objects = {x for x in dir(controller) if isinstance(x, str)}
-		property_set = {
-			x for x in available_objects if isinstance(getattr(controller, x, None), property)
-		}
+		property_set = {x for x in available_objects if is_a_property(getattr(controller, x, None))}
 		method_set = {
 			x for x in available_objects if x not in property_set and callable(getattr(controller, x, None))
 		}
@@ -339,6 +338,7 @@ class DocType(Document):
 			"name",
 			"parent",
 			"creation",
+			"owner",
 			"modified",
 			"modified_by",
 			"parentfield",
@@ -409,7 +409,9 @@ class DocType(Document):
 			if self.flags.in_insert:
 				self.run_module_method("after_doctype_insert")
 
+		self.sync_doctype_layouts()
 		delete_notification_count_for(doctype=self.name)
+
 		frappe.clear_cache(doctype=self.name)
 
 		# clear user cache so that on the next reload this doctype is included in boot
@@ -419,6 +421,17 @@ class DocType(Document):
 			self.sync_global_search()
 
 		clear_linked_doctype_cache()
+
+	@savepoint(catch=Exception)
+	def sync_doctype_layouts(self):
+		"""Sync Doctype Layout"""
+		doctype_layouts = frappe.get_all(
+			"DocType Layout", filters={"document_type": self.name}, pluck="name", ignore_ddl=True
+		)
+		for layout in doctype_layouts:
+			layout_doc = frappe.get_doc("DocType Layout", layout)
+			layout_doc.sync_fields()
+			layout_doc.save()
 
 	def setup_autoincrement_and_sequence(self):
 		"""Changes name type and makes sequence on change (if required)"""
@@ -1489,6 +1502,7 @@ def get_fields_not_allowed_in_list_view(meta) -> list[str]:
 	not_allowed_in_list_view.append("Attach Image")
 	if meta.istable:
 		not_allowed_in_list_view.remove("Button")
+		not_allowed_in_list_view.remove("HTML")
 	return not_allowed_in_list_view
 
 
@@ -1677,7 +1691,9 @@ def make_module_and_roles(doc, perm_fieldname="permissions"):
 
 		for role in list(set(roles)):
 			if frappe.db.table_exists("Role", cached=False) and not frappe.db.exists("Role", role):
-				r = frappe.get_doc(dict(doctype="Role", role_name=role, desk_access=1))
+				r = frappe.new_doc("Role")
+				r.role_name = role
+				r.desk_access = 1
 				r.flags.ignore_mandatory = r.flags.ignore_permissions = True
 				r.insert()
 	except frappe.DoesNotExistError as e:
@@ -1693,9 +1709,7 @@ def check_fieldname_conflicts(docfield):
 	"""Checks if fieldname conflicts with methods or properties"""
 	doc = frappe.get_doc({"doctype": docfield.dt})
 	available_objects = [x for x in dir(doc) if isinstance(x, str)]
-	property_list = [
-		x for x in available_objects if isinstance(getattr(type(doc), x, None), property)
-	]
+	property_list = [x for x in available_objects if is_a_property(getattr(type(doc), x, None))]
 	method_list = [
 		x for x in available_objects if x not in property_list and callable(getattr(doc, x))
 	]
