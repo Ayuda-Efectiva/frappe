@@ -372,6 +372,9 @@ def handle_exception(e):
 		# don't fail silently for non-json response errors
 		print(frappe.get_traceback())
 
+	# DFP http_status_code must be applied to response!!
+	response.status_code = http_status_code
+
 	return response
 
 
