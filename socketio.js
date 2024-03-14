@@ -12,8 +12,6 @@ const io = require("socket.io")(conf.socketio_port, {
 		origin: true,
 		credentials: true,
 	},
-	// DFP: Our case: first try 'websocket' transport then 'pooling': read more: https://socket.io/docs/v4/how-it-works/#upgrade-mechanism
-	transports: ['websocket', 'polling'],
 });
 
 io.use((socket, next) => {
