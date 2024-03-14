@@ -19,11 +19,15 @@ frappe.socketio = {
 				secure: true,
 				withCredentials: true,
 				reconnectionAttempts: 3,
+				// DFP: Our case: first try 'websocket' transport then 'pooling': read more: https://socket.io/docs/v4/how-it-works/#upgrade-mechanism
+				transports: ['websocket', 'polling'],
 			});
 		} else if (window.location.protocol == "http:") {
 			frappe.socketio.socket = io.connect(frappe.socketio.get_host(port), {
 				withCredentials: true,
 				reconnectionAttempts: 3,
+				// DFP: Our case: first try 'websocket' transport then 'pooling': read more: https://socket.io/docs/v4/how-it-works/#upgrade-mechanism
+				transports: ['websocket', 'polling'],
 			});
 		}
 
