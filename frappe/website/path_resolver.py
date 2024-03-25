@@ -119,7 +119,9 @@ def resolve_redirect(path, query_string=None):
 	for rule in redirects:
 		pattern = rule["source"].strip("/ ") + "$"
 		path_to_match = path
-		if rule.get("match_with_query_string"):
+		# DFP. extra check because it generates error when not doing it
+		# if rule.get("match_with_query_string"):
+		if rule.get("match_with_query_string") and query_string:
 			path_to_match = path + "?" + frappe.safe_decode(query_string)
 
 		if re.match(pattern, path_to_match):
