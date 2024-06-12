@@ -273,7 +273,6 @@ def setup_cache():
 		)
 
 	# DFP. Fix when creating docker image that there is no redis instance. Restored old functionality from old code. More info: https://github.com/Ayuda-Efectiva/frappe/commit/6ce403640b17aff339e52acdda1e82a4d2ab7a98
-	print("DFP redis_cache", frappe.conf.get("redis_cache") or "redis://localhost:11311")
 	return RedisWrapper.from_url(frappe.conf.get("redis_cache") or "redis://localhost:11311")
 
 
