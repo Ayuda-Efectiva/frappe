@@ -229,6 +229,8 @@ def insert_values_for_multiple_docs(all_contents):
 			}
 		)
 
+		# DFP. Fix global search insertion
+		frappe.db.commit()
 
 def update_global_search(doc):
 	"""
