@@ -548,7 +548,7 @@ class Document(BaseDocument):
 		self._fix_rating_value()
 		self._validate_code_fields()
 		self._sync_autoname_field()
-		self._extract_images_from_text_editor()
+		self._extract_images_from_editor()
 		self._sanitize_content()
 		self._save_passwords()
 		self.validate_workflow()
@@ -561,7 +561,7 @@ class Document(BaseDocument):
 			d._fix_rating_value()
 			d._validate_code_fields()
 			d._sync_autoname_field()
-			d._extract_images_from_text_editor()
+			d._extract_images_from_editor()
 			d._sanitize_content()
 			d._save_passwords()
 		if self.is_new():
@@ -981,7 +981,7 @@ class Document(BaseDocument):
 			"on_cancel": "Cancel",
 		}
 
-		if not self.flags.in_insert:
+		if not self.flags.in_insert and not self.flags.in_delete:
 			# value change is not applicable in insert
 			event_map["on_change"] = "Value Change"
 

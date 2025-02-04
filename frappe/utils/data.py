@@ -2,6 +2,7 @@
 # License: MIT. See LICENSE
 
 import base64
+import calendar
 import datetime
 import hashlib
 import json
@@ -582,7 +583,7 @@ def format_date(string_date=None, format_string: str | None = None, parse_day_fi
 		formatted_date = babel.dates.format_date(
 			date, format_string, locale=(frappe.local.lang or "").replace("-", "_")
 		)
-	except UnknownLocaleError:
+	except (UnknownLocaleError, ValueError):
 		format_string = format_string.replace("MM", "%m").replace("dd", "%d").replace("yyyy", "%Y")
 		formatted_date = date.strftime(format_string)
 	return formatted_date
@@ -613,7 +614,7 @@ def format_time(time_string=None, format_string: str | None = None) -> str:
 		formatted_time = babel.dates.format_time(
 			time_, format_string, locale=(frappe.local.lang or "").replace("-", "_")
 		)
-	except UnknownLocaleError:
+	except (UnknownLocaleError, ValueError):
 		formatted_time = time_.strftime("%H:%M:%S")
 	return formatted_time
 
@@ -641,7 +642,7 @@ def format_datetime(datetime_string: DateTimeLikeObject, format_string: str | No
 		formatted_datetime = babel.dates.format_datetime(
 			datetime, format_string, locale=(frappe.local.lang or "").replace("-", "_")
 		)
-	except UnknownLocaleError:
+	except (UnknownLocaleError, ValueError):
 		formatted_datetime = datetime.strftime("%Y-%m-%d %H:%M:%S")
 	return formatted_datetime
 
@@ -728,6 +729,20 @@ def get_weekday(datetime: datetime.datetime | None = None) -> str:
 		datetime = now_datetime()
 	weekdays = get_weekdays()
 	return weekdays[datetime.weekday()]
+
+
+def get_month(datetime: DateTimeLikeObject | None = None) -> str:
+	"""Return the month name (e.g. 'January') for the given datetime like object (datetime.date, datetime.datetime, string).
+
+	If `datetime` argument is not provided, the current month name is returned.
+	"""
+	if not datetime:
+		datetime = now_datetime()
+
+	if isinstance(datetime, str):
+		datetime = get_datetime(datetime)
+
+	return calendar.month_name[datetime.month]
 
 
 def get_timespan_date_range(timespan: str) -> tuple[datetime.datetime, datetime.datetime]:
@@ -1895,7 +1910,7 @@ def sanitize_column(column_name: str) -> None:
 	def _raise_exception():
 		frappe.throw(_("Invalid field name {0}").format(column_name), frappe.DataError)
 
-	regex = re.compile("^.*[,'();].*")
+	regex = re.compile("^.*[,'();\n].*")
 	if "ifnull" in column_name:
 		if regex.match(column_name):
 			# to avoid and, or
@@ -1904,6 +1919,11 @@ def sanitize_column(column_name: str) -> None:
 
 			# to avoid select, delete, drop, update and case
 			elif any(keyword in column_name.split() for keyword in blacklisted_keywords):
+				_raise_exception()
+
+			elif any(
+				re.search(rf"\b{keyword}\b", column_name, re.IGNORECASE) for keyword in blacklisted_keywords
+			):
 				_raise_exception()
 
 	elif regex.match(column_name):
@@ -2184,10 +2204,13 @@ class UnicodeWithAttrs(str):
 		self.metadata = text.metadata
 
 
-def format_timedelta(o: datetime.timedelta) -> str:
-	# mariadb allows a wide diff range - https://mariadb.com/kb/en/time/
-	# but frappe doesnt - i think via babel : only allows 0..23 range for hour
-	total_seconds = o.total_seconds()
+def format_timedelta(o: datetime.timedelta | str) -> str:
+	# MariaDB allows a wide range - https://mariadb.com/kb/en/time/
+	# but Frappe doesn't - I think via babel : only allows 0..23 range for hour
+	if isinstance(o, datetime.timedelta):
+		total_seconds = o.total_seconds()
+	else:
+		total_seconds = cint(o)
 	hours, remainder = divmod(total_seconds, 3600)
 	minutes, seconds = divmod(remainder, 60)
 	rounded_seconds = round(seconds, 6)
