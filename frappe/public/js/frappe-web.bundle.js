@@ -14,7 +14,8 @@ import "./frappe/utils/datetime.js";
 import "./frappe/microtemplate.js";
 import "./frappe/query_string.js";
 
-import "./frappe/upload.js";
+// DFP no need for upload in website yet
+// import "./frappe/upload.js";
 
 import "./frappe/model/meta.js";
 import "./frappe/model/model.js";

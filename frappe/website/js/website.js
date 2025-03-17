@@ -284,7 +284,9 @@ $.extend(frappe, {
 	},
 
 	highlight_code_blocks: function () {
-		hljs.initHighlighting();
+		// DFP: Deprecated as of 10.6.0. initHighlighting() is deprecated. Use highlightAll() instead.
+		// hljs.initHighlighting();
+		hljs.highlightAll();
 	},
 	bind_filters: function () {
 		// set in select
