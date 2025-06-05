@@ -400,6 +400,9 @@ def handle_exception(e):
 		# don't fail silently for non-json response errors
 		print(frappe.get_traceback())
 
+	# DFP: http_status_code must be applied to response!!
+	response.status_code = http_status_code
+
 	return response
 
 
@@ -483,7 +486,9 @@ def serve(
 	from werkzeug.serving import run_simple
 
 	if profile or os.environ.get("USE_PROFILER"):
-		application = ProfilerMiddleware(application, sort_by=("cumtime", "calls"))
+		# DFP: added profile folder
+		# application = ProfilerMiddleware(application, sort_by=("cumtime", "calls"))
+		application = ProfilerMiddleware(application, sort_by=("cumtime", "calls"), profile_dir="../prof/")
 
 	if not os.environ.get("NO_STATICS"):
 		application = application_with_statics()
