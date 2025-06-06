@@ -133,7 +133,10 @@ def clear_website_cache(path=None):
 @frappe.whitelist(allow_guest=True)
 @rate_limit(key="article", limit=5, seconds=60 * 60)
 def add_feedback(article: str, helpful: str):
-	field = "not_helpful" if helpful == "No" else "helpful"
-
-	value = cint(frappe.db.get_value("Help Article", article, field))
-	frappe.db.set_value("Help Article", article, field, value + 1, update_modified=False)
+	# DFP: Fields not_helpful and helpful does not exist in Doctype :/ so updated to field "likes"
+	# field = "not_helpful" if helpful == "No" else "helpful"
+	# value = cint(frappe.db.get_value("Help Article", article, field))
+	# frappe.db.set_value("Help Article", article, field, value + 1, update_modified=False)
+	update = -1 if helpful == "No" else (1 if helpful == "Yes" else 0)
+	value = cint(frappe.db.get_value("Help Article", article, "likes"))
+	frappe.db.set_value("Help Article", article, "likes", value + update, update_modified=False)
