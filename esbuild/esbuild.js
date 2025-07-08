@@ -229,7 +229,9 @@ function get_files_to_build(files) {
 }
 
 function build_files({ files, outdir }) {
-	let build_plugins = [vue(), html_plugin, build_cleanup_plugin, vue_style_plugin];
+	let build_plugins = [
+		vue({ compilerOptions: { whitespace: 'preserve' }}), // DFP. preserve innerHtml within #app (returned by backend)
+		html_plugin, build_cleanup_plugin, vue_style_plugin];
 	return esbuild.build(get_build_options(files, outdir, build_plugins));
 }
 
