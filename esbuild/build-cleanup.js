@@ -13,7 +13,6 @@ module.exports = {
 };
 
 function clean_dist_files(new_files) {
-	return
 	// DFP Cleanup dist files but leaving latest x previous versions
 	dfp_clean_dist_files_leaving_latest_x_previous_versions(new_files);
 	return
