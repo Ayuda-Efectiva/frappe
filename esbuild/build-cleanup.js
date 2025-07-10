@@ -13,7 +13,6 @@ module.exports = {
 };
 
 function clean_dist_files(new_files) {
-	return
 	// DFP Cleanup dist files but leaving latest x previous versions
 	dfp_clean_dist_files_leaving_latest_x_previous_versions(new_files);
 	return
@@ -37,7 +36,7 @@ function clean_dist_files(new_files) {
 /**
  * Avoid all assets being removed and keep last defined versions. Using docker to build images, we need to keep last x previous versions of assets to allow smooth deploy if severtal instances are running at the same time because for a short time, some instances will be running old code and some new code
  */
-function dfp_clean_dist_files_leaving_latest_x_previous_versions(new_files, versions_to_keep=5) {
+function dfp_clean_dist_files_leaving_latest_x_previous_versions(new_files, versions_to_keep=50) {
 	// Group files by their base name and extension (without hash)
 	const fileGroups = new Map();
 
