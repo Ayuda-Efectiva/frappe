@@ -13,9 +13,10 @@ module.exports = {
 };
 
 function clean_dist_files(new_files) {
-	// // DFP Cleanup dist files but leaving latest x previous versions
-	// dfp_clean_dist_files_leaving_latest_x_previous_versions(new_files);
-	// return
+	return
+	// DFP Cleanup dist files but leaving latest x previous versions
+	dfp_clean_dist_files_leaving_latest_x_previous_versions(new_files);
+	return
 	new_files.forEach((file) => {
 		if (file.endsWith(".map")) return;
 
