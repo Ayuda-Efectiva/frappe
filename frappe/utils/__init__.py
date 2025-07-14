@@ -984,6 +984,11 @@ def get_assets_json():
 		return assets
 
 	if not hasattr(frappe.local, "assets_json"):
+		# <DFP disable redis cache for assets; Used CF for assets cache
+		frappe.local.assets_json = _get_assets()
+		return frappe.local.assets_json
+		# DFP>
+
 		if not frappe.conf.developer_mode:
 			frappe.local.assets_json = frappe.cache.get_value(
 				"assets_json",
