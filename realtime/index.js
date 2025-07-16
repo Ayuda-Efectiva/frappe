@@ -6,18 +6,6 @@ const conf = get_conf();
 
 const server = http.createServer();
 
-// <DFP logging
-server.on('request', (req, res) => {
-	console.log(`\n--- Request Headers ---`);
-	console.log(`Method: ${req.method} | URL: ${req.url}`);
-	console.log(`Host: ${req.headers.host}`);
-	console.log(`Origin: ${req.headers.origin || 'N/A'}`);
-	console.log(`User-Agent: ${req.headers['user-agent'] || 'N/A'}`);
-	console.log(`Authorization: ${req.headers.authorization ? '[PRESENT]' : 'N/A'}`);
-	console.log('--- End Headers ---\n');
-});
-// DFP logging>
-
 let io = new Server(server, {
 	cors: {
 		// Should be fine since we are ensuring whether hostname and origin are same before adding setting listeners for s socket
@@ -26,6 +14,23 @@ let io = new Server(server, {
 	},
 	cleanupEmptyChildNamespaces: true,
 });
+
+// <DFP logging
+// Add Socket.IO connection logging
+console.log('DFP logs enabled')
+io.engine.on("connection_error", (err) => {
+	console.log("Connection error:", err.req.url, err.code, err.message);
+});
+
+io.engine.on("headers", (headers, req) => {
+	console.log(`\n--- DFP Socket.IO Headers ---`);
+	console.log(`Host: ${req.headers.host}`);
+	console.log(`Origin: ${req.headers.origin || 'N/A'}`);
+	console.log(`User-Agent: ${req.headers['user-agent'] || 'N/A'}`);
+	console.log(`Cookie: ${req.headers.cookie ? '[PRESENT]' : 'N/A'}`);
+	console.log('--- DFP End Headers ---\n');
+});
+// DFP logging>
 
 // Multitenancy implementation.
 // allow arbitrary sitename as namespaces
@@ -40,6 +45,14 @@ realtime.use(authenticate);
 // load and register handlers
 const frappe_handlers = require("./handlers/frappe_handlers");
 function on_connection(socket) {
+// <DFP más logs
+	console.log(`\n--- DFP New Socket Connection ---`);
+	console.log(`Socket ID: ${socket.id}`);
+	console.log(`Namespace: ${socket.nsp.name}`);
+	console.log(`IP: ${socket.handshake.address}`);
+	console.log(`Headers: Host=${socket.handshake.headers.host}, Origin=${socket.handshake.headers.origin}`);
+	console.log('--- DFP End Connection Info ---\n')
+// DFP más logs>
 	frappe_handlers(realtime, socket);
 
 	// ESBUild "open in editor" on error
