@@ -17,18 +17,9 @@ let io = new Server(server, {
 
 // <DFP logging
 // Add Socket.IO connection logging
-console.log('DFP logs enabled')
+console.log("DFP log io.engine.onconnection_error enabled")
 io.engine.on("connection_error", (err) => {
 	console.log("Connection error:", err.req.url, err.code, err.message);
-});
-
-io.engine.on("headers", (headers, req) => {
-	console.log(`\n--- DFP Socket.IO Headers ---`);
-	console.log(`Host: ${req.headers.host}`);
-	console.log(`Origin: ${req.headers.origin || 'N/A'}`);
-	console.log(`User-Agent: ${req.headers['user-agent'] || 'N/A'}`);
-	console.log(`Cookie: ${req.headers.cookie ? '[PRESENT]' : 'N/A'}`);
-	console.log('--- DFP End Headers ---\n');
 });
 // DFP logging>
 
@@ -45,14 +36,6 @@ realtime.use(authenticate);
 // load and register handlers
 const frappe_handlers = require("./handlers/frappe_handlers");
 function on_connection(socket) {
-// <DFP más logs
-	console.log(`\n--- DFP New Socket Connection ---`);
-	console.log(`Socket ID: ${socket.id}`);
-	console.log(`Namespace: ${socket.nsp.name}`);
-	console.log(`IP: ${socket.handshake.address}`);
-	console.log(`Headers: Host=${socket.handshake.headers.host}, Origin=${socket.handshake.headers.origin}`);
-	console.log('--- DFP End Connection Info ---\n')
-// DFP más logs>
 	frappe_handlers(realtime, socket);
 
 	// ESBUild "open in editor" on error
