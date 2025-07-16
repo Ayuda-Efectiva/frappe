@@ -260,7 +260,7 @@ function get_build_options(files, outdir, plugins) {
 		entryNames: "[dir]/[name].[hash]",
 		target: ["es2017"],
 		outdir,
-		sourcemap: !PRODUCTION, // DFP sourcemap only if not PRODUCTION
+		sourcemap: false,//!PRODUCTION, // DFP sourcemap only if not PRODUCTION
 		bundle: true,
 		metafile: true,
 		minify: PRODUCTION,
