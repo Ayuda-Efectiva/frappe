@@ -17,9 +17,12 @@ let io = new Server(server, {
 
 // <DFP logging
 // Add Socket.IO connection logging
-console.log("DFP log io.engine.onconnection_error enabled")
-io.engine.on("connection_error", (err) => {
-	console.log("Connection error:", err.req.url, err.code, err.message);
+console.log('DFP log io.engine.onconnection_error & headers host&origin print enabled')
+io.engine.on('connection_error', (err) => {
+	console.log('DFP Connection error:', err.req.url, err.code, err.message);
+});
+io.engine.on('headers', (headers, req) => {
+	console.log('DFP debug: Host & Origin headers:', req.headers?.host, req.headers?.origin);
 });
 // DFP logging>
 
