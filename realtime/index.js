@@ -6,6 +6,18 @@ const conf = get_conf();
 
 const server = http.createServer();
 
+// <DFP logging
+server.on('request', (req, res) => {
+	console.log(`\n--- Request Headers ---`);
+	console.log(`Method: ${req.method} | URL: ${req.url}`);
+	console.log(`Host: ${req.headers.host}`);
+	console.log(`Origin: ${req.headers.origin || 'N/A'}`);
+	console.log(`User-Agent: ${req.headers['user-agent'] || 'N/A'}`);
+	console.log(`Authorization: ${req.headers.authorization ? '[PRESENT]' : 'N/A'}`);
+	console.log('--- End Headers ---\n');
+});
+// DFP logging>
+
 let io = new Server(server, {
 	cors: {
 		// Should be fine since we are ensuring whether hostname and origin are same before adding setting listeners for s socket
