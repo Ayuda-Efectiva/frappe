@@ -13,10 +13,11 @@ function authenticate_with_frappe(socket, next) {
 		next(new Error("Invalid namespace"));
 	}
 
-	if (get_hostname(socket.request.headers.host) != get_hostname(socket.request.headers.origin)) {
-		next(new Error("Invalid origin"));
-		return;
-	}
+	// DFP test remove origin check
+	// if (get_hostname(socket.request.headers.host) != get_hostname(socket.request.headers.origin)) {
+	// 	next(new Error("Invalid origin"));
+	// 	return;
+	// }
 
 	if (!socket.request.headers.cookie) {
 		next(new Error("No cookie transmitted."));
