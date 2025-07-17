@@ -255,12 +255,13 @@ function build_style_files({ files, outdir, rtl_style = false }) {
 }
 
 function get_build_options(files, outdir, plugins) {
+	console.log('DFP: esbuild: get_build_options: PRODUCTION = ', PRODUCTION) // DFP logging
 	return {
 		entryPoints: files,
 		entryNames: "[dir]/[name].[hash]",
 		target: ["es2017"],
 		outdir,
-		sourcemap: false,//!PRODUCTION, // DFP sourcemap only if not PRODUCTION
+		sourcemap: !PRODUCTION, // DFP sourcemap only if not PRODUCTION
 		bundle: true,
 		metafile: true,
 		minify: PRODUCTION,
