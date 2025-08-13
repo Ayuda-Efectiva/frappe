@@ -341,7 +341,8 @@ frappe.get_modal = function (title, content) {
 							${frappe.utils.icon("collapse")}
 						</button>
 						<button class="btn btn-modal-close btn-link" data-dismiss="modal">
-							${frappe.utils.icon("close-alt", "sm", "close-alt")}
+							<!-- DFP use &times ${frappe.utils.icon("close-alt", "sm", "close-alt")} -->
+							<span aria-hidden="true" style="font-size: 1.3rem;line-height: 1.3rem;">&times;</span>
 						</button>
 					</div>
 				</div>
