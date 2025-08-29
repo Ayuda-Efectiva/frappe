@@ -229,7 +229,9 @@ function get_files_to_build(files) {
 }
 
 function build_files({ files, outdir }) {
-	let build_plugins = [vue(), html_plugin, build_cleanup_plugin, vue_style_plugin];
+	// DFP: added compilerOptions: { comments: false } to remove comments within template in .vue files
+	// let build_plugins = [vue(), html_plugin, build_cleanup_plugin, vue_style_plugin]; // DFP
+	let build_plugins = [vue({ compilerOptions: { comments: false }}), html_plugin, build_cleanup_plugin, vue_style_plugin];
 	return esbuild.build(get_build_options(files, outdir, build_plugins));
 }
 
