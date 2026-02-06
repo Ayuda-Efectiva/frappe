@@ -64,7 +64,7 @@ def _get_user_inputs(app_name):
 		input_type = config.get("type", str)
 
 		while value is None:
-			if input_type == bool:
+			if input_type is bool:
 				value = click.confirm(config["prompt"], default=config.get("default"))
 			else:
 				value = click.prompt(config["prompt"], default=config.get("default"), type=input_type)
@@ -628,6 +628,11 @@ app_license = "{app_license}"
 # default_log_clearing_doctypes = {{
 # 	"Logging DocType Name": 30  # days to retain logs
 # }}
+
+# Translation
+# ------------
+# List of apps whose translatable strings should be excluded from this app's translations.
+# ignore_translatable_strings_from = []
 
 """
 

@@ -170,7 +170,7 @@ def get_script(report_name):
 		script += f"\n\n//# sourceURL={scrub(report.name)}__custom"
 
 	if not script:
-		script = "frappe.query_reports['%s']={}" % report_name
+		script = "frappe.query_reports['{}']={{}}".format(report_name)
 
 	return {
 		"script": render_include(script),
@@ -313,7 +313,7 @@ def get_prepared_report_result(report, filters, dn="", user=None):
 @frappe.whitelist()
 def export_query():
 	"""export from query reports"""
-	from frappe.desk.utils import get_csv_bytes, pop_csv_params, provide_binary_file
+	from frappe.desk.utils import pop_csv_params
 
 	form_params = frappe._dict(frappe.local.form_dict)
 	csv_params = pop_csv_params(form_params)
@@ -325,11 +325,48 @@ def export_query():
 		raise_exception=True,
 	)
 
+	export_in_background = int(form_params.export_in_background or 0)
+	if export_in_background:
+		user = frappe.session.user
+		user_email = frappe.get_cached_value("User", user, "email")
+		frappe.enqueue(
+			"frappe.desk.query_report.run_export_query_job",
+			user_email=user_email,
+			form_params=form_params,
+			csv_params=csv_params,
+			queue="long",
+			now=frappe.flags.in_test,
+		)
+		frappe.msgprint(
+			_(
+				"Your report is being generated in the background. You will receive an email on {0} with a download link once it is ready."
+			).format(user_email)
+		)
+		return
+
+	return _export_query(form_params, csv_params)
+
+
+def run_export_query_job(user_email: str, form_params, csv_params):
+	from frappe.desk.utils import send_report_email
+
+	report_name, file_extension, content = _export_query(form_params, csv_params, populate_response=False)
+	send_report_email(
+		user_email, report_name, file_extension, content, attached_to_name=form_params.report_name
+	)
+
+
+def _export_query(form_params, csv_params, populate_response=True):
+	from frappe.desk.utils import get_csv_bytes, provide_binary_file
+	from frappe.utils.xlsxutils import handle_html, make_xlsx
+
+	report_name = form_params.report_name
 	file_format_type = form_params.file_format_type
 	custom_columns = frappe.parse_json(form_params.custom_columns or "[]")
 	include_indentation = form_params.include_indentation
 	include_filters = form_params.include_filters
 	visible_idx = form_params.visible_idx
+	include_hidden_columns = form_params.include_hidden_columns
 
 	if isinstance(visible_idx, str):
 		visible_idx = json.loads(visible_idx)
@@ -347,20 +384,20 @@ def export_query():
 
 	format_fields(data)
 	xlsx_data, column_widths = build_xlsx_data(
-		data, visible_idx, include_indentation, include_filters=include_filters
+		data,
+		visible_idx,
+		include_indentation,
+		include_filters=include_filters,
+		include_hidden_columns=include_hidden_columns,
 	)
 
 	if file_format_type == "CSV":
-		from frappe.utils.xlsxutils import handle_html
-
 		content = get_csv_bytes(
 			[[handle_html(frappe.as_unicode(v)) if isinstance(v, str) else v for v in r] for r in xlsx_data],
 			csv_params,
 		)
 		file_extension = "csv"
 	elif file_format_type == "Excel":
-		from frappe.utils.xlsxutils import make_xlsx
-
 		file_extension = "xlsx"
 		content = make_xlsx(xlsx_data, "Query Report", column_widths=column_widths).getvalue()
 
@@ -375,7 +412,10 @@ def export_query():
 			if valid_report_name(report_name, suffix):
 				report_name += suffix
 
-	provide_binary_file(report_name, file_extension, content)
+	if not populate_response:
+		return report_name, file_extension, content
+
+	provide_binary_file(_(report_name), file_extension, content)
 
 
 def valid_report_name(report_name, suffix):
@@ -398,7 +438,14 @@ def format_fields(data: frappe._dict) -> None:
 					row[index] = round(row[index], col.get("precision"))
 
 
-def build_xlsx_data(data, visible_idx, include_indentation, include_filters=False, ignore_visible_idx=False):
+def build_xlsx_data(
+	data,
+	visible_idx,
+	include_indentation,
+	include_filters=False,
+	ignore_visible_idx=False,
+	include_hidden_columns=False,
+):
 	EXCEL_TYPES = (
 		str,
 		bool,
@@ -421,10 +468,9 @@ def build_xlsx_data(data, visible_idx, include_indentation, include_filters=Fals
 	result = []
 	column_widths = []
 
-	if cint(include_filters):
+	if cint(include_filters) and data.filters:
 		filter_data = []
-		filters = data.filters
-		for filter_name, filter_value in filters.items():
+		for filter_name, filter_value in data.filters.items():
 			if not filter_value:
 				continue
 			filter_value = (
@@ -438,7 +484,7 @@ def build_xlsx_data(data, visible_idx, include_indentation, include_filters=Fals
 
 	column_data = []
 	for column in data.columns:
-		if column.get("hidden"):
+		if column.get("hidden") and not cint(include_hidden_columns):
 			continue
 		column_data.append(_(column.get("label")))
 		column_width = cint(column.get("width", 0))
@@ -454,7 +500,7 @@ def build_xlsx_data(data, visible_idx, include_indentation, include_filters=Fals
 			row_data = []
 			if isinstance(row, dict):
 				for col_idx, column in enumerate(data.columns):
-					if column.get("hidden"):
+					if column.get("hidden") and not cint(include_hidden_columns):
 						continue
 					label = column.get("label")
 					fieldname = column.get("fieldname")

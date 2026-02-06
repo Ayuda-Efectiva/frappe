@@ -39,6 +39,7 @@ from frappe.utils.password import check_password, get_password_reset_limit
 from frappe.utils.password import update_password as _update_password
 from frappe.utils.user import get_system_managers
 from frappe.website.utils import get_home_page, is_signup_disabled
+from frappe.www.login import sanitize_redirect
 
 desk_properties = (
 	"search_bar",
@@ -392,7 +393,7 @@ class User(Document):
 
 	def get_fullname(self):
 		"""get first_name space last_name"""
-		return (self.first_name or "") + (self.first_name and " " or "") + (self.last_name or "")
+		return (self.first_name or "") + ((self.first_name and " ") or "") + (self.last_name or "")
 
 	def password_reset_mail(self, link):
 		reset_password_template = frappe.db.get_system_setting("reset_password_template")
@@ -452,8 +453,8 @@ class User(Document):
 		args.update(add_args)
 
 		sender = (
-			frappe.session.user not in STANDARD_USERS and get_formatted_email(frappe.session.user) or None
-		)
+			frappe.session.user not in STANDARD_USERS and get_formatted_email(frappe.session.user)
+		) or None
 
 		if custom_template:
 			from frappe.email.doctype.email_template.email_template import get_email_template
@@ -545,6 +546,13 @@ class User(Document):
 				if row.user == self.name:
 					note.remove(row)
 			note.save(ignore_permissions=True)
+
+		# Unlink user from all of its invitation docs
+		invites = frappe.db.get_all("User Invitation", filters={"email": self.name}, pluck="name")
+		for invite in invites:
+			invite_doc = frappe.get_doc("User Invitation", invite)
+			invite_doc.user = None
+			invite_doc.save(ignore_permissions=True)
 
 	def before_rename(self, old_name, new_name, merge=False):
 		# if merging, delete the old user notification settings
@@ -974,7 +982,9 @@ def sign_up(email: str, full_name: str, redirect_to: str) -> tuple[int, str]:
 		else:
 			return 0, _("Registered but disabled")
 	else:
-		if frappe.db.get_creation_count("User", 60) > 300:
+		max_signups_allowed_per_hour = cint(frappe.get_system_settings("max_signups_allowed_per_hour") or 300)
+		users_created_past_hour = frappe.db.get_creation_count("User", 60)
+		if users_created_past_hour >= max_signups_allowed_per_hour:
 			frappe.respond_as_web_page(
 				_("Temporarily Disabled"),
 				_(
@@ -1005,7 +1015,7 @@ def sign_up(email: str, full_name: str, redirect_to: str) -> tuple[int, str]:
 			user.add_roles(default_role)
 
 		if redirect_to:
-			frappe.cache.hset("redirect_after_login", user.name, redirect_to)
+			frappe.cache.hset("redirect_after_login", user.name, sanitize_redirect(redirect_to))
 
 		if user.flags.email_sent:
 			return 1, _("Please check your email for verification")
@@ -1174,7 +1184,27 @@ def handle_password_test_fail(feedback: dict):
 	suggestions = feedback.get("suggestions", [])
 	warning = feedback.get("warning", "")
 
-	frappe.throw(msg=" ".join([warning, *suggestions]), title=_("Invalid Password"))
+	# Add fallback suggestion if nothing provided
+	if not (suggestions or warning):
+		suggestions = [_("Better add a few more letters or another word")]
+
+	message_parts = []
+
+	if warning:
+		message_parts.append(f'<div class="alert alert-warning" role="alert">{warning}</div>')
+
+	if suggestions:
+		suggestions_html = (
+			'<ul style="margin: 0; padding-left: 1em;">'
+			+ "".join(f"<li>{suggestion}</li>" for suggestion in suggestions)
+			+ "</ul>"
+		)
+		message_parts.append(suggestions_html)
+
+	frappe.throw(
+		msg="".join(message_parts),
+		title=_("Password requirements not met"),
+	)
 
 
 def update_gravatar(name):
