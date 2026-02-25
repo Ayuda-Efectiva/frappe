@@ -13,6 +13,11 @@ class PrintPage(TemplatePage):
 		if len(parts) != 2 or not frappe.db.exists("DocType", parts[0], True):
 			return False
 
+		# <DFP. Forzamos False
+		# TODO: eliminar a partir del 26.06.01 si no se loguea este error!
+		frappe.log_error(title="Cae aquí alguna vez? PrintPage(TemplatePage)->can_render")
+		return False
+		# DFP>
 		return True
 
 	def render(self):

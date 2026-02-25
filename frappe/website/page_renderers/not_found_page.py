@@ -14,6 +14,13 @@ class NotFoundPage(TemplatePage):
 		self.request_url = frappe.local.request.url if hasattr(frappe.local, "request") else ""
 		path = "404"
 		http_status_code = http_status_code or 404
+		# <DFP
+		# DFP. DO NOT USED!!! NotFoundPage should return 404 status code
+		# http_status_code = 404
+		# DELETE AFTER 26.01.01!!!! si no se loguea este error
+		if http_status_code != 404:
+			frappe.log_error(title=f"Debería devolverse 404 aquí? {path}")
+		# DFP>
 		super().__init__(path=path, http_status_code=http_status_code)
 
 	def can_render(self):

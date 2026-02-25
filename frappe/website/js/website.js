@@ -284,7 +284,10 @@ $.extend(frappe, {
 	},
 
 	highlight_code_blocks: function () {
-		hljs.initHighlighting();
+		// <DFP: Deprecated as of 10.6.0. initHighlighting() is deprecated. Use highlightAll() instead.
+		// hljs.initHighlighting();
+		hljs.highlightAll();
+		// DFP>
 	},
 	bind_filters: function () {
 		// set in select
@@ -419,15 +422,36 @@ $.extend(frappe, {
 	},
 });
 
-frappe.setup_search = function (target, search_scope) {
+// <DFP. Improvements as custom limit, translated "No results found...",
+// … before and after matched text preview, custom placeholder text, autocomplete off
+// frappe.setup_search = function (target, search_scope) {
+frappe.setup_search = function (target, search_scope, limit = 5, placeholder = "") {
+	// DFP>
 	if (typeof target === "string") {
 		target = $(target);
 	}
 
+	// <DFP: customizable && translatable input placeholder
+	let placeholder_text = placeholder || __("Search the docs (Press / to focus)");
+	// let $search_input = $(`<div class="dropdown" id="dropdownMenuSearch">
+	// 		<input type="search" class="form-control" placeholder="${__(
+	// 			"Search the docs (Press / to focus)"
+	// 		)}" />
+	// 		<div class="overflow-hidden shadow dropdown-menu w-100" aria-labelledby="dropdownMenuSearch">
+	// 		</div>
+	// 		<div class="search-icon">
+	// 			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"
+	// 				fill="none"
+	// 				stroke="currentColor" stroke-width="2" stroke-linecap="round"
+	// 				stroke-linejoin="round"
+	// 				class="feather feather-search">
+	// 				<circle cx="11" cy="11" r="8"></circle>
+	// 				<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+	// 			</svg>
+	// 		</div>
+	// 	</div>`);
 	let $search_input = $(`<div class="dropdown" id="dropdownMenuSearch">
-			<input type="search" class="form-control" placeholder="${__(
-				"Search the docs (Press / to focus)"
-			)}" />
+			<input type="search" class="form-control" autocomplete="off" placeholder="${placeholder_text}" />
 			<div class="overflow-hidden shadow dropdown-menu w-100" aria-labelledby="dropdownMenuSearch">
 			</div>
 			<div class="search-icon">
@@ -441,6 +465,7 @@ frappe.setup_search = function (target, search_scope) {
 				</svg>
 			</div>
 		</div>`);
+	// DFP>
 
 	target.empty();
 	$search_input.appendTo(target);
@@ -475,21 +500,31 @@ frappe.setup_search = function (target, search_scope) {
 					args: {
 						scope: search_scope || null,
 						query: $input.val(),
-						limit: 5,
+						// <DFP: customizable limit
+						// limit: 5,
+						limit: limit,
+						// DFP>
 					},
 				})
 				.then((r) => {
 					let results = r.message || [];
 					let dropdown_html;
 					if (results.length == 0) {
-						dropdown_html = `<div class="dropdown-item">No results found</div>`;
+						// <DFP: translatable no results found message
+						// dropdown_html = `<div class="dropdown-item">No results found</div>`;
+						dropdown_html = `<div class="dropdown-item">${__(
+							'No results found for "{0}"',
+							[$input.val()]
+						)}</div>`;
+						// DFP>
 					} else {
 						dropdown_html = results
 							.map((r) => {
 								return `<a class="dropdown-item" href="/${r.path}">
 						<h6>${r.title_highlights || r.title}</h6>
-						<div style="white-space: normal;">${r.content_highlights}</div>
+						<div style="white-space: normal;">${r.content_highlights}…</div>
 					</a>`;
+								// DFP: above line added ... before ending </div>
 							})
 							.join("");
 					}

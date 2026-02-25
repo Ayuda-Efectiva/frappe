@@ -53,13 +53,13 @@ class RealTimeClient {
 			this.socket = io(this.get_host(port), {
 				secure: true,
 				withCredentials: true,
-				reconnectionAttempts: 3,
+				// reconnectionAttempts: 3, // DFP. ✅ enable infinite retries, allowing connection if users suspend computer or changes tab
 				autoConnect: !lazy_connect,
 			});
 		} else if (window.location.protocol == "http:") {
 			this.socket = io(this.get_host(port), {
 				withCredentials: true,
-				reconnectionAttempts: 3,
+				// reconnectionAttempts: 3, // DFP. ✅ enable infinite retries, allowing connection if users suspend computer or changes tab
 				autoConnect: !lazy_connect,
 			});
 		}

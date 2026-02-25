@@ -25,7 +25,10 @@ frappe.get_modal = function (title, content) {
 					<div class="modal-header">
 						<h5 class="modal-title">${title}</h5>
 						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
-						${frappe.utils.icon("close-alt", "sm", "close-alt")}
+						<!-- <DFP use &times instead of timeless icon from below -->
+						<!-- ${frappe.utils.icon("close-alt", "sm", "close-alt")} -->
+						<span aria-hidden="true" style="font-size: 1.7rem; line-height: 1.7rem;">&times;</span>
+						<!-- DFP> -->
 						</button>
 					</div>
 					<div class="modal-body">

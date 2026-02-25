@@ -983,6 +983,12 @@ def get_assets_json():
 		return assets
 
 	if not frappe.conf.developer_mode:
+		# # <DFP NOT USED SO COMMENTED!!
+		# TODO: DELETE AFTER 2026.06.01
+		# Disable redis cache for assets; Used CF for assets cache
+		# frappe.local.assets_json = _get_assets()
+		# return frappe.local.assets_json
+		# # DFP>
 		return frappe.client_cache.get_value(
 			"assets_json",
 			shared=True,

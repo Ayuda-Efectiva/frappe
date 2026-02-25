@@ -10,12 +10,20 @@ export default class Column {
 	}
 
 	make() {
+		// DFP: Allow hidden columns (mainly when customizing docs)
+		// this.wrapper = $(`
+		// 	<div class="form-column" data-fieldname="${this.df.fieldname}">
+		// 		<form>
+		// 		</form>
+		// 	</div>
+		// `).appendTo(this.section.body);
 		this.wrapper = $(`
-			<div class="form-column" data-fieldname="${this.df.fieldname}">
+			<div class="form-column${this.df.hidden ? " hidden" : ""}" data-fieldname="${this.df.fieldname}">
 				<form>
 				</form>
 			</div>
 		`).appendTo(this.section.body);
+		// DFP>
 
 		this.form = this.wrapper.find("form").on("submit", () => false);
 
@@ -38,8 +46,12 @@ export default class Column {
 
 	resize_all_columns() {
 		// distribute all columns equally
-		let columns = this.section.wrapper.find(".form-column").length;
+
+		// <DFP: Allow hidden columns (when customizing doctypes and you want to hide any field)
+		// let columns = this.section.wrapper.find(".form-column").length;
+		let columns = this.section.wrapper.find(".form-column:not(.hidden)").length;
 		let colspan = cint(12 / columns);
+		// DFP>
 
 		if (columns == 5) {
 			colspan = 20;

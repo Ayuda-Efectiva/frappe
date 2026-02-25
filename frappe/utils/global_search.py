@@ -502,6 +502,11 @@ def search(text, start=0, limit=20, doctype=""):
 		if not word:
 			continue
 
+		# <DFP: fix for searching emails. More info: https://dev.mysql.com/doc/refman/8.0/en/fulltext-boolean.html InnoDB full-text search does not support the use of the @ symbol in boolean full-text searches. The @ symbol is reserved for use by the @distance proximity search operator.
+		word = re.sub(r"(?<=\S)@(?=\S)", "+", word)
+		word = word.replace("@", "")
+		# DFP>
+
 		global_search = frappe.qb.Table("__global_search")
 		rank = Match(global_search.content).Against(word)
 		query = (
@@ -552,6 +557,10 @@ def web_search(text: str, scope: str | None = None, start: int = 0, limit: int =
 	:param limit: number of results to return, default 20
 	:return: Array of result objects
 	"""
+
+	# DFP: búsqueda para la web pública. Deshabilitado por seguridad. Parece deprecado
+	# porque se usa otro sistema de búsqueda: frappe.search.website_search
+	return []
 
 	results = []
 	texts = text.split("&")

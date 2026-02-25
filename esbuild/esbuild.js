@@ -9,7 +9,11 @@ const chalk = require("chalk");
 const html_plugin = require("./frappe-html");
 const vue_style_plugin = require("./frappe-vue-style");
 const rtlcss = require("rtlcss");
-const postCssPlugin = require("@frappe/esbuild-plugin-postcss2").default;
+// <DFP. Replacing postCssPlugin by sassPlugin as it is causing issues with sass files within Element Plus
+// const postCssPlugin = require("@frappe/esbuild-plugin-postcss2").default;
+// IMPORTANT! cd apps/frappe && yarn add esbuild-sass-plugin
+const { sassPlugin } = require("esbuild-sass-plugin");
+// DFP>
 const ignore_assets = require("./ignore-assets");
 const sass_options = require("./sass_options");
 const build_cleanup_plugin = require("./build-cleanup");
@@ -239,6 +243,9 @@ function build_assets_for_apps(apps, files) {
 			files: style_file_map,
 			outdir: output_path,
 		});
+		// <DFP. Below line disables RTL styles as we don't need rtl styles for now
+		rtl_style_file_map = {};
+		// DFP>
 		let rtl_style_build = build_style_files({
 			files: rtl_style_file_map,
 			outdir: output_path,
@@ -291,7 +298,15 @@ function get_files_to_build(files) {
 }
 
 function build_files({ files, outdir }) {
-	let build_plugins = [vue(), html_plugin, build_cleanup_plugin, vue_style_plugin];
+	// <DFP: added compilerOptions: { comments: false } to remove comments within template in .vue files
+	// let build_plugins = [vue(), html_plugin, build_cleanup_plugin, vue_style_plugin];
+	let build_plugins = [
+		vue({ compilerOptions: { comments: false } }),
+		html_plugin,
+		build_cleanup_plugin,
+		vue_style_plugin,
+	];
+	// DFP>
 	return esbuild.build(get_build_options(files, outdir, build_plugins));
 }
 
@@ -304,7 +319,9 @@ function build_style_files({ files, outdir, rtl_style = false }) {
 	let build_plugins = [
 		ignore_assets,
 		build_cleanup_plugin,
-		postCssPlugin({
+		// DFP Replacing `postCssPlugin` by `sassPlugin` as it is causing issues with sass files within Element Plus
+		// postCssPlugin({
+		sassPlugin({
 			plugins: plugins,
 			sassOptions: sass_options,
 		}),
@@ -320,7 +337,10 @@ function get_build_options(files, outdir, plugins) {
 		entryNames: "[dir]/[name].[hash]",
 		target: [ESBUILD_TARGET],
 		outdir,
-		sourcemap: true,
+		// <DFP. sourcemap only if not PRODUCTION
+		// sourcemap: true,
+		sourcemap: !PRODUCTION,
+		// DFP>
 		bundle: true,
 		metafile: true,
 		minify: PRODUCTION,
@@ -452,6 +472,11 @@ async function write_assets_json(metafile) {
 				rtl = true;
 				key = `rtl_${key}`;
 			}
+			// <DFP. sassPlugin adds .scss to the entryPoint, but we need .css in assets.json for include_style("file.bundle.css") to work.
+			if (key.endsWith(".scss")) {
+				key = key.replace(".scss", ".css");
+			}
+			// DFP>
 			out[key] = asset_path;
 		}
 	}
@@ -498,7 +523,10 @@ async function update_assets_json_in_cache() {
 async function get_assets_json_path_and_obj(is_rtl) {
 	const file_name = is_rtl ? "assets-rtl.json" : "assets.json";
 	const assets_json_path = path.resolve(assets_path, file_name);
-	let assets_json;
+	// <DFP FIX If assets.json can be empty (no {}) with build issues, it will cause JSON.parse to fail.
+	// let assets_json;
+	let assets_json = {};
+	// DFP>
 	try {
 		assets_json = await fs.promises.readFile(assets_json_path, "utf-8");
 	} catch (error) {

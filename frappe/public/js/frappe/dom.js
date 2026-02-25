@@ -352,7 +352,10 @@ frappe.get_modal = function (title, content) {
 							${frappe.utils.icon("collapse")}
 						</button>
 						<button class="btn btn-ghost btn-modal-close icon-btn" data-dismiss="modal">
-							${frappe.utils.icon("x", "sm")}
+						<!-- <DFP use &times instead of timeless icon from below -->
+						<!-- ${frappe.utils.icon("x", "sm")} -->
+						<span aria-hidden="true" style="font-size: 1.7rem; line-height: 1.7rem;">&times;</span>
+						<!-- DFP> -->
 						</button>
 					</div>
 				</div>
