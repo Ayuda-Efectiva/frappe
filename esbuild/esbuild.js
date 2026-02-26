@@ -349,6 +349,9 @@ function get_build_options(files, outdir, plugins) {
 			"process.env.NODE_ENV": JSON.stringify(PRODUCTION ? "production" : "development"),
 			__VUE_OPTIONS_API__: JSON.stringify(true),
 			__VUE_PROD_DEVTOOLS__: JSON.stringify(false),
+			// <DFP avoid browser console related errors:
+			__VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(true),
+			// DFP>
 		},
 		plugins: plugins,
 		watch: get_watch_config(),
