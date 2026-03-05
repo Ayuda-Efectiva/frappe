@@ -1,0 +1,40 @@
+diff --git a/node_modules/@vue/compiler-sfc/dist/compiler-sfc.cjs.js b/node_modules/@vue/compiler-sfc/dist/compiler-sfc.cjs.js
+index cc2298d..b81db5a 100644
+--- a/node_modules/@vue/compiler-sfc/dist/compiler-sfc.cjs.js
++++ b/node_modules/@vue/compiler-sfc/dist/compiler-sfc.cjs.js
+@@ -11172,6 +11172,35 @@ var merge$1 = /*@__PURE__*/getDefaultExportFromCjs(mergeSourceMap);
+ 
+ const scss = (source, map, options, load = require) => {
+   const nodeSass = load("sass");
++  // Use modern Sass API (compileString) if available to avoid legacy-js-api deprecation warnings
++  if (nodeSass.compileString) {
++    try {
++      const sassSource = getSource(source, options.filename, options.additionalData);
++      const modernOptions = {
++        syntax: options.indentedSyntax ? 'indented' : 'scss',
++        loadPaths: options.includePaths || [],
++        sourceMap: !!map,
++        sourceMapIncludeSources: !!map,
++        url: options.filename ? require('url').pathToFileURL(options.filename) : undefined,
++      };
++      const result = nodeSass.compileString(sassSource, modernOptions);
++      const dependencies = result.loadedUrls
++        ? result.loadedUrls.map(u => require('url').fileURLToPath(u))
++        : [];
++      if (map && result.sourceMap) {
++        return {
++          code: result.css,
++          map: merge$1(map, result.sourceMap),
++          errors: [],
++          dependencies
++        };
++      }
++      return { code: result.css, errors: [], dependencies };
++    } catch (e) {
++      return { code: "", errors: [e], dependencies: [] };
++    }
++  }
++  // Fallback to legacy API
+   const finalOptions = {
+     ...options,
+     data: getSource(source, options.filename, options.additionalData),

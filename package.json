@@ -4,7 +4,8 @@
     "build": "node esbuild",
     "production": "node esbuild --production",
     "watch": "node esbuild --watch",
-    "coverage:report": "npx nyc report --reporter=clover"
+    "coverage:report": "npx nyc report --reporter=clover",
+    "postinstall": "patch-package"
   },
   "repository": {
     "type": "git",
@@ -94,5 +95,8 @@
   "optionalDependencies": {
     "bufferutil": "^4.0.8",
     "utf-8-validate": "^6.0.3"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1"
   }
 }

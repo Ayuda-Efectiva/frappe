@@ -321,10 +321,14 @@ function build_style_files({ files, outdir, rtl_style = false }) {
 		build_cleanup_plugin,
 		// DFP Replacing `postCssPlugin` by `sassPlugin` as it is causing issues with sass files within Element Plus
 		// postCssPlugin({
+		// <DFP: spread sass_options directly (flat options); `sassOptions` key is not recognised by esbuild-sass-plugin v3
+		// and would be forwarded to Sass causing legacy-js-api deprecation warnings.
+		// DFP. IMPORTANT!!! ADDED "postinstall": "patch-package" AND "devDependencies": { "patch-package": "^8.0.1" } INTO frappe/package.json to fix an issue of @vue+compiler-sfc that was using old dart sass version when compiling vue components sass
 		sassPlugin({
 			plugins: plugins,
-			sassOptions: sass_options,
+			...sass_options,
 		}),
+		// DFP>
 	];
 
 	plugins.push(require("autoprefixer"));
