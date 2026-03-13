@@ -183,6 +183,7 @@ frappe.msgprint = function (msg, title, is_minimizable, re_route) {
 			onhide: function () {
 				if (frappe.msg_dialog.custom_onhide) {
 					frappe.msg_dialog.custom_onhide();
+					delete frappe.msg_dialog.custom_onhide;
 				}
 				frappe.msg_dialog.msg_area.empty();
 			},
@@ -442,7 +443,7 @@ frappe.show_alert = frappe.toast = function (message, seconds = 7, actions = {})
 				<div class="alert-subtitle">${message.subtitle || ""}</div>
 			</div>
 			<div class="alert-body" style="display: none"></div>
-			<a class="close">${frappe.utils.icon("close-alt")}</a>
+			<a class="close">${frappe.utils.icon("x")}</a>
 		</div>
 	`);
 

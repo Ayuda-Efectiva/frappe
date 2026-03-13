@@ -45,11 +45,10 @@ export default class Column {
 	}
 
 	resize_all_columns() {
-		// distribute all columns equally
-
-		// <DFP: Allow hidden columns (when customizing doctypes and you want to hide any field)
-		// let columns = this.section.wrapper.find(".form-column").length;
-		let columns = this.section.wrapper.find(".form-column:not(.hidden)").length;
+		// distribute visible columns equally, scoped to this section's direct children only
+		let all_columns = this.section.body.children(".form-column");
+		let visible_columns = all_columns.filter(":not(.hide-control)");
+		let columns = visible_columns.length || all_columns.length;
 		let colspan = cint(12 / columns);
 		// DFP>
 
@@ -57,16 +56,25 @@ export default class Column {
 			colspan = 20;
 		}
 
-		this.section.wrapper
-			.find(".form-column")
-			.removeClass()
-			.addClass("form-column")
-			.addClass("col-sm-" + colspan);
+		all_columns.each(function () {
+			const $col = $(this);
+			const is_hidden = $col.hasClass("hide-control");
+			$col.removeClass()
+				.addClass("form-column")
+				.addClass("col-sm-" + colspan);
+			if (is_hidden) {
+				$col.addClass("hide-control");
+			}
+		});
 	}
 
 	add_field() {}
 
 	refresh() {
+		if (!this.df) return;
+		const hide = this.df.hidden || this.df.hidden_due_to_dependency;
+		this.wrapper.toggleClass("hide-control", !!hide);
+		this.resize_all_columns();
 		this.section.refresh();
 	}
 }
