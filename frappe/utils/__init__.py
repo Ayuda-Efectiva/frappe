@@ -368,6 +368,9 @@ def _get_traceback_sanitizer():
 		"key",
 		"pwd",
 	]
+	# <DFP add our custom blocklist words
+	blocklist += ["user", "email", "phone", "nif", "site", "address"]
+	# DFP>
 
 	placeholder = "********"
 
