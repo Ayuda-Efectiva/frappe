@@ -272,7 +272,12 @@ def execute_job(site, method, event, job_name, kwargs, user=None, is_async=True,
 	try:
 		retval = method(**kwargs)
 
-	except (frappe.db.InternalError, frappe.RetryBackgroundJobError) as e:
+	# <DFP
+	# except (frappe.db.InternalError, frappe.RetryBackgroundJobError) as e:
+	except (frappe.db.InternalError, frappe.RetryBackgroundJobError, frappe.QueryDeadlockError, frappe.QueryTimeoutError) as e:
+		if isinstance(e, frappe.QueryDeadlockError) or isinstance(e, frappe.QueryTimeoutError):
+			frappe.log_error(title="DFP salvamos un deadlock|QueryDeadlockError!!", message=str(e))
+		# DFP>
 		frappe.db.rollback(chain=True)
 
 		if retry < 5 and (

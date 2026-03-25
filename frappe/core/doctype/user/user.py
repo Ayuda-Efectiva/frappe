@@ -1326,6 +1326,8 @@ def get_module_profile(module_profile: str):
 
 
 def create_contact(user, ignore_links=False, ignore_mandatory=False):
+	# DFP we do not create contact!
+	return
 	from frappe.contacts.doctype.contact.contact import get_contact_name
 
 	if user.name in ["Administrator", "Guest"]:
