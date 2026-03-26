@@ -39,7 +39,7 @@ function clean_dist_files(new_files) {
  */
 function dfp_clean_dist_files_leaving_latest_x_previous_versions(
 	new_files,
-	versions_to_keep = 50
+	versions_to_keep = 25
 ) {
 	// Group files by their base name and extension (without hash)
 	const fileGroups = new Map();
