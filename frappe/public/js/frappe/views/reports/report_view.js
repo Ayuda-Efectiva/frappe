@@ -502,6 +502,11 @@ frappe.views.ReportView = class ReportView extends frappe.views.ListView {
 		// show chart if saved via report or user settings
 		if (!this.chart) {
 			if (this.chart_args) {
+				if (!this.chart_axes_valid(this.chart_args)) {
+					this.reset_chart_state();
+					return;
+				}
+
 				this.build_chart_args(
 					this.chart_args.x_axis,
 					this.chart_args.y_axes,
@@ -643,10 +648,28 @@ frappe.views.ReportView = class ReportView extends frappe.views.ListView {
 
 	refresh_charts() {
 		if (!this.chart || !this.chart_args) return;
+
+		if (!this.chart_axes_valid(this.chart_args)) {
+			this.reset_chart_state();
+			return;
+		}
+
 		this.$charts_wrapper.removeClass("hidden");
 		const { x_axis, y_axes, chart_type } = this.chart_args;
 		this.build_chart_args(x_axis, y_axes, chart_type);
 		this.chart.update(this.chart_args);
+	}
+
+	chart_axes_valid(chart_args) {
+		const { x_axis, y_axes } = chart_args;
+		return this.columns_map[x_axis] && y_axes.every((y_axis) => this.columns_map[y_axis]);
+	}
+
+	reset_chart_state() {
+		this.chart = null;
+		this.chart_args = null;
+		this.$charts_wrapper.addClass("hidden");
+		this.save_view_user_settings({ chart_args: null });
 	}
 
 	get_editing_object(colIndex, rowIndex, value, parent) {
@@ -763,9 +786,6 @@ frappe.views.ReportView = class ReportView extends frappe.views.ListView {
 		} else if (expression.substr(0, 5) == "eval:") {
 			try {
 				out = frappe.utils.eval(expression.substr(5), { doc: data });
-				if (parent && parent.istable && expression.includes("is_submittable")) {
-					out = true;
-				}
 			} catch (e) {
 				frappe.throw(__('Invalid "depends_on" expression'));
 			}

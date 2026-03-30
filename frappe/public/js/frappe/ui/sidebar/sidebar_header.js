@@ -25,6 +25,17 @@ frappe.ui.SidebarHeader = class SidebarHeader {
 				items: this.sibling_workspaces,
 			},
 			{
+				name: "website",
+				label: __("Website"),
+				icon: "web",
+				onClick: function () {
+					window.open(window.location.origin);
+				},
+			},
+			{
+				is_divider: true,
+			},
+			{
 				name: "edit-sidebar",
 				label: __("Edit Sidebar"),
 				icon: "edit",
@@ -36,11 +47,9 @@ frappe.ui.SidebarHeader = class SidebarHeader {
 				},
 			},
 			{
-				name: "website",
-				label: __("Website"),
-				icon: "web",
-				onClick: function () {
-					window.open(window.location.origin);
+				is_divider: true,
+				condition: function () {
+					return frappe.boot.developer_mode;
 				},
 			},
 		];
@@ -51,6 +60,9 @@ frappe.ui.SidebarHeader = class SidebarHeader {
 					label: "Session Defaults",
 					action: "frappe.ui.toolbar.setup_session_defaults()",
 					is_standard: 1,
+					condition: function () {
+						return frappe.boot.session_defaults.length != 0;
+					},
 					icon: "sliders-horizontal",
 				},
 				{
@@ -76,6 +88,9 @@ frappe.ui.SidebarHeader = class SidebarHeader {
 					label: "Help",
 					icon: "info",
 					items: this.get_help_siblings(),
+				},
+				{
+					is_divider: true,
 				},
 				{
 					name: "logout",
