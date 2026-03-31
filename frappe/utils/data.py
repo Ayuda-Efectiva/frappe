@@ -2422,19 +2422,28 @@ def md_to_html(markdown_text: str) -> "UnicodeWithAttrs" | None:
 		"toc": None,
 		"highlightjs-lang": None,
 		"html-classes": {"table": "table table-bordered", "img": "screenshot"},
+		# <DFP
+		"footnotes": None,
+		"markdown-in-html": {},
+		# DFP>
 	}
 
 	try:
 		# <DFP: feat add extra markdown params and per app customization, like jenv
 		# return UnicodeWithAttrs(_markdown(markdown_text or "", extras=extras))
-		extras_extended = frappe.conf.get("markdown", {}).get("extras", extras)
-		footnote_title = frappe.conf.get("markdown", {}).get("footnote_title", None)
-		footnote_return_symbol = frappe.conf.get("markdown", {}).get("footnote_return_symbol", None)
-		# return UnicodeWithAttrs(_markdown(markdown_text or "", extras=extras))
-		return UnicodeWithAttrs(_markdown(markdown_text or "", extras=extras_extended, footnote_title=footnote_title, footnote_return_symbol=footnote_return_symbol))
+		from frappe import _
+		footnote_title = _("Vuelve a la cita %d en el texto.")
+		footnote_return_symbol="<i class='caret caret-up'></i>"
+		return UnicodeWithAttrs(_markdown(markdown_text or "", extras=extras, footnote_title=footnote_title, footnote_return_symbol=footnote_return_symbol))
 		# DFP>
 	except MarkdownError:
 		pass
+	# <DFP
+	except Exception as e:
+		frappe.log_error(title="Markdown parsing error", message=str({ "markdown_text": markdown_text, "e": e }))
+	# Always return markdown object because used "source" and "source.toc_html"
+	return UnicodeWithAttrs(_markdown(""))
+	# DFP>
 
 
 def markdown(markdown_text: str) -> "UnicodeWithAttrs" | None:
