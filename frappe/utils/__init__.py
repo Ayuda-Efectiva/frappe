@@ -738,7 +738,10 @@ def get_request_session(max_retries=5):
 
 
 def markdown(text, sanitize=True, linkify=True):
-	html = text if is_html(text) else frappe.utils.md_to_html(text)
+	# <DFP undo commit (f3ccdd9 • Modified fix: dont convert from md if html) because some MD has html tags and this avoid MD rendering; this method is called usually when other DocField is of type "markdown"
+	# html = text if is_html(text) else frappe.utils.md_to_html(text)
+	html = frappe.utils.md_to_html(text)
+	# DFP>
 
 	if sanitize:
 		html = html.replace("<!-- markdown -->", "")
