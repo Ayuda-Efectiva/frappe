@@ -1021,7 +1021,27 @@ def test_password_strength(new_password: str, key=None, old_password=None, user_
 
 		result["feedback"]["password_policy_validation_passed"] = password_policy_validation_passed
 		result.pop("password", None)
-		return result
+		# DFP Remove issue: Integer exceeds 64-bit range filtering not used values from result
+		return _DFP_get_serializable_password_strength_result(result)
+
+
+def _DFP_get_serializable_password_strength_result(result: dict) -> dict:
+	password_strength = {
+		"feedback": result.get("feedback") or {},
+		"score": result.get("score"),
+	}
+
+	if result.get("guesses_log10") is not None:
+		password_strength["guesses_log10"] = result.get("guesses_log10")
+		password_strength["entropy"] = result.get("guesses_log10")
+
+	if crack_times_display := result.get("crack_times_display"):
+		password_strength["crack_times_display"] = crack_times_display
+		password_strength["crack_time_display"] = crack_times_display.get(
+			"offline_slow_hashing_1e4_per_second"
+		)
+
+	return password_strength
 
 
 @frappe.whitelist()
