@@ -401,7 +401,17 @@ def handle_exception(e):
 
 	if e.__class__ == frappe.AuthenticationError:
 		if hasattr(frappe.local, "login_manager"):
-			frappe.local.login_manager.clear_cookies()
+			# <DFP if user fails entering password we avoid being logged if it is logged and changing its password
+			# frappe.local.login_manager.clear_cookies()
+			if (
+				frappe.form_dict.get("cmd") == "frappe.core.doctype.user.user.update_password"
+				and frappe.session.user != "Guest"
+				and frappe.session.data.user_type == "Website User"
+			):
+				pass
+			else:
+				frappe.local.login_manager.clear_cookies()
+			# DFP>
 
 	if http_status_code >= 500 or frappe.conf.developer_mode:
 		log_error_snapshot(e)
