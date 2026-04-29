@@ -530,16 +530,19 @@ async function update_assets_json_in_cache() {
 async function get_assets_json_path_and_obj(is_rtl) {
 	const file_name = is_rtl ? "assets-rtl.json" : "assets.json";
 	const assets_json_path = path.resolve(assets_path, file_name);
-	// <DFP FIX If assets.json can be empty (no {}) with build issues, it will cause JSON.parse to fail.
-	// let assets_json;
-	let assets_json = {};
-	// DFP>
+	let assets_json;
 	try {
 		assets_json = await fs.promises.readFile(assets_json_path, "utf-8");
 	} catch (error) {
 		assets_json = "{}";
 	}
-	assets_json = JSON.parse(assets_json);
+	// <DFP FIX If assets.json can be empty (no {}) with build issues, it will cause JSON.parse to fail.
+	try {
+		assets_json = JSON.parse(assets_json);
+	} catch (error) {
+		assets_json = {};
+	}
+	// DFP>
 	return { obj: assets_json, path: assets_json_path };
 }
 
