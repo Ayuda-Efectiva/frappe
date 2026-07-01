@@ -20,7 +20,6 @@ import frappe
 from frappe.installer import parse_app_name
 from frappe.model.document import Document
 from frappe.tests import IntegrationTestCase, MockedRequestTestCase, UnitTestCase
-from frappe.tests.utils import toggle_test_mode
 from frappe.utils import (
 	ceil,
 	dict_to_str,
@@ -30,8 +29,9 @@ from frappe.utils import (
 	format_timedelta,
 	get_bench_path,
 	get_file_timestamp,
-	get_gravatar,
+	get_identicon,
 	get_link_to_report,
+	get_safe_filters,
 	get_site_info,
 	get_sites,
 	get_url,
@@ -351,6 +351,29 @@ class TestFilters(IntegrationTestCase):
 		}
 		link = get_link_to_report(name="ToDo", filters=filters)
 		self.assertIn('creation=["between",["2024-01-01","2024-12-31"]]', link)
+
+	def test_safe_filters_scientific_notation(self):
+		self.assertEqual(get_safe_filters("3E002"), "3E002")
+		self.assertEqual(get_safe_filters("1E5"), "1E5")
+		self.assertEqual(get_safe_filters("2e10"), "2e10")
+		self.assertEqual(get_safe_filters("1.5"), "1.5")
+		self.assertEqual(get_safe_filters("0"), "0")
+		self.assertEqual(get_safe_filters("Infinity"), "Infinity")
+		self.assertEqual(get_safe_filters("NaN"), "NaN")
+
+	def test_safe_filters_json(self):
+		self.assertEqual(get_safe_filters('{"name": "ABC"}'), {"name": "ABC"})
+		self.assertEqual(get_safe_filters('[["name", "=", "ABC"]]'), [["name", "=", "ABC"]])
+		# FrappeClient encodes scalar filters via frappe.as_json — must still unwrap
+		self.assertEqual(get_safe_filters('"ABC"'), "ABC")
+		self.assertIsNone(get_safe_filters("null"))
+		self.assertIs(get_safe_filters("true"), True)
+		self.assertIs(get_safe_filters("false"), False)
+
+	def test_safe_filters_non_string(self):
+		self.assertEqual(get_safe_filters({"name": "ABC"}), {"name": "ABC"})
+		self.assertEqual(get_safe_filters([["name", "=", "ABC"]]), [["name", "=", "ABC"]])
+		self.assertIsNone(get_safe_filters(None))
 
 
 class TestMoney(IntegrationTestCase):
@@ -1182,18 +1205,14 @@ class TestLazyLoader(IntegrationTestCase):
 
 
 class TestIdenticon(IntegrationTestCase):
-	def test_get_gravatar(self):
-		# developers@frappe.io has a gravatar linked so str URL will be returned
-		toggle_test_mode(False)
-		gravatar_url = get_gravatar("developers@frappe.io")
-		toggle_test_mode(True)
-		self.assertIsInstance(gravatar_url, str)
-		self.assertTrue(gravatar_url.startswith("http"))
+	def test_get_identicon(self):
+		identicon_url = get_identicon("developers@frappe.io")
+		self.assertIsInstance(identicon_url, str)
+		self.assertTrue(identicon_url.startswith("data:image/png;base64,"))
 
-		# random email will require Identicon to be generated, which will be a base64 string
-		gravatar_url = get_gravatar(f"developers{random_string(6)}@frappe.io")
-		self.assertIsInstance(gravatar_url, str)
-		self.assertTrue(gravatar_url.startswith("data:image/png;base64,"))
+		identicon_url = get_identicon(f"developers{random_string(6)}@frappe.io")
+		self.assertIsInstance(identicon_url, str)
+		self.assertTrue(identicon_url.startswith("data:image/png;base64,"))
 
 	def test_generate_identicon(self):
 		identicon = Identicon(random_string(6))
@@ -1470,6 +1489,16 @@ class TestRounding(IntegrationTestCase):
 		self.assertEqual(flt(-1.15, 1, rounding_method=rounding_method), -1.2)
 		self.assertEqual(flt(-2.25, 1, rounding_method=rounding_method), -2.2)
 		self.assertEqual(flt(-3.35, 1, rounding_method=rounding_method), -3.4)
+
+		# Sign-symmetry regression.
+		for value, expected in [
+			(647.325, 647.32),
+			(647.315, 647.32),
+			(0.125, 0.12),
+			(0.135, 0.14),
+		]:
+			self.assertEqual(flt(value, 2, rounding_method=rounding_method), expected)
+			self.assertEqual(flt(-value, 2, rounding_method=rounding_method), -expected)
 
 	@IntegrationTestCase.change_settings("System Settings", {"rounding_method": "Banker's Rounding"})
 	@given(

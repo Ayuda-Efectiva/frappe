@@ -93,7 +93,7 @@ frappe.Application = class Application {
 	setup_theme() {
 		frappe.ui.keys.add_shortcut({
 			shortcut: "shift+ctrl+g",
-			description: __("Switch Theme"),
+			description: __("Switch theme"),
 			action: () => {
 				if (frappe.theme_switcher && frappe.theme_switcher.dialog.is_visible) {
 					frappe.theme_switcher.hide();
@@ -145,8 +145,17 @@ frappe.Application = class Application {
 		if (frappe.user_roles.includes("System Manager")) {
 			// delayed following requests to make boot faster
 			setTimeout(() => {
-				this.show_change_log();
-				this.show_update_available();
+				if (
+					!frappe.ui.maybe_show_legacy_gravatar_cleanup_prompt({
+						onhide: () => {
+							this.show_change_log();
+							this.show_update_available();
+						},
+					})
+				) {
+					this.show_change_log();
+					this.show_update_available();
+				}
 			}, 1000);
 		}
 
@@ -459,7 +468,7 @@ frappe.Application = class Application {
 	}
 
 	show_update_available() {
-		if (!frappe.boot.has_app_updates) return;
+		if (!frappe.boot.has_app_updates || !frappe.boot.setup_complete) return;
 		frappe.xcall("frappe.utils.change_log.show_update_popup");
 	}
 

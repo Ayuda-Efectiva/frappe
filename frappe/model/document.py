@@ -1,11 +1,13 @@
 # Copyright (c) 2015, Frappe Technologies Pvt. Ltd. and Contributors
 # License: MIT. See LICENSE
+import functools
 import hashlib
+import inspect
 import itertools
 import json
 import time
 import warnings
-from collections.abc import Generator, Iterable
+from collections.abc import Callable, Generator, Iterable
 from contextlib import contextmanager
 from functools import wraps
 from types import MappingProxyType
@@ -40,6 +42,23 @@ if TYPE_CHECKING:
 
 DOCUMENT_LOCK_EXPIRY = 3 * 60 * 60  # All locks expire in 3 hours automatically
 DOCUMENT_LOCK_SOFT_EXPIRY = 30 * 60  # Let users force-unlock after 30 minutes
+_POSITIONAL_PARAM_KINDS = frozenset(
+	(inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+)
+
+
+@functools.cache
+def _accepts_method_argument(f: Callable) -> bool:
+	"""Return True if the doc event handler expects the `method` argument."""
+	signature = inspect.signature(f)
+	kinds = [p.kind for p in signature.parameters.values()]
+	if any(kind == inspect.Parameter.VAR_POSITIONAL for kind in kinds):
+		return True
+
+	if sum(1 for kind in kinds if kind in _POSITIONAL_PARAM_KINDS) > 1:
+		return True
+
+	return False
 
 
 type _SingleDocument = "Document"
@@ -286,9 +305,6 @@ class Document(BaseDocument):
 		# sometimes __setup__ can depend on child values, hence calling again at the end
 		if hasattr(self, "__setup__"):
 			self.__setup__()
-
-		if not is_doctype:
-			self.mask_fields()
 
 		return self
 
@@ -541,6 +557,7 @@ class Document(BaseDocument):
 
 		self.check_if_locked()
 		self._set_defaults()
+		self._restore_masked_fields_from_db()
 		self.check_permission("write", "save")
 
 		self.set_user_and_timestamp()
@@ -915,7 +932,7 @@ class Document(BaseDocument):
 		return same
 
 	def apply_fieldlevel_read_permissions(self):
-		"""Remove values the user is not allowed to read."""
+		"""Remove values the user is not allowed to read, and mask fields per mask permissions."""
 		if frappe.session.user == "Administrator":
 			return
 
@@ -924,6 +941,7 @@ class Document(BaseDocument):
 			all_fields += frappe.get_meta(table_field.options).fields or []
 
 		if all(df.permlevel == 0 for df in all_fields):
+			self.mask_fields()
 			return
 
 		has_access_to = self.get_permlevel_access("read")
@@ -943,6 +961,25 @@ class Document(BaseDocument):
 						if hasattr(child, df.fieldname):
 							delattr(child, df.fieldname)
 
+		self.mask_fields()
+
+	def _restore_masked_fields_from_db(self):
+		"""Restore masked field values from DB so that link-field user-permission checks
+		are not tripped by the XXXXXXXX placeholder sent from the client."""
+		if frappe.flags.in_install or frappe.session.user == "Administrator" or self.is_new():
+			return
+
+		mask_fields = self.meta.get_masked_fields()
+		if not mask_fields:
+			return
+
+		# frappe.db.get_value() goes through the query builder which re-masks results for
+		# non-admin users, returning XXXXXXXX. frappe.get_doc() uses load_from_db() which
+		# queries the DB directly and always returns the actual stored value.
+		db_doc = frappe.get_doc(self.doctype, self.name)
+		for df in mask_fields:
+			self.set(df.fieldname, db_doc.get(df.fieldname))
+
 	def validate_higher_perm_levels(self):
 		"""If the user does not have permissions at permlevel > 0, then reset the values to original / default"""
 		if self.flags.ignore_permissions or frappe.flags.in_install:
@@ -954,10 +991,8 @@ class Document(BaseDocument):
 		has_access_to = self.get_permlevel_access()
 		high_permlevel_fields = self.meta.get_high_permlevel_fields()
 
-		mask_fields = self.meta.get_masked_fields()
-
-		if high_permlevel_fields or mask_fields:
-			self.reset_values_if_no_permlevel_access(has_access_to, high_permlevel_fields, mask_fields)
+		if high_permlevel_fields:
+			self.reset_values_if_no_permlevel_access(has_access_to, high_permlevel_fields)
 
 		# If new record then don't reset the values for child table
 		if self.is_new():
@@ -1169,8 +1204,10 @@ class Document(BaseDocument):
 
 		return children
 
-	def run_method(self, method, *args, **kwargs):
+	def run_method(self, method: str, *args, **kwargs):
 		"""run standard triggers, plus those in hooks"""
+
+		assert not method.startswith("__"), "Run method is for hooks, avoid usage on internal methods"
 
 		def fn(self, *args, **kwargs):
 			method_object = getattr(self, method, None)
@@ -1560,7 +1597,11 @@ class Document(BaseDocument):
 				for f in hooks:
 					try:
 						frappe.db._disable_transaction_control += 1
-						add_to_return_value(self, f(self, method, *args, **kwargs))
+						# Allow handlers to be defined without method arg, e.g. `handler(doc)`
+						if not args and not _accepts_method_argument(f):
+							add_to_return_value(self, f(self, **kwargs))
+						else:
+							add_to_return_value(self, f(self, method, *args, **kwargs))
 					finally:
 						frappe.db._disable_transaction_control -= 1
 
@@ -2024,7 +2065,7 @@ def get_lazy_controller(doctype):
 		original_controller = get_controller(doctype)
 		if meta.is_virtual:  # not supported
 			lazy_controllers[doctype] = original_controller
-			warnings.warn("Virtual doctypes don't support lazy loading", stacklevel=2)
+			warnings.warn(f"Virtual doctypes don't support lazy loading: {doctype}", stacklevel=3)
 			return original_controller
 
 		# Dynamically construct a class that subclasses LazyDocument and original controller.
@@ -2058,7 +2099,8 @@ class LazyDocument:
 	def append(self, key: str, value: D | dict | None = None, position: int = -1) -> D:
 		# Ensure that table descriptor is triggered at least once
 		# key is assumed to be a table fieldname (as expected by BaseDocument.append)
-		getattr(self, key, None)
+		if key not in self.__dict__:
+			getattr(self, key, None)
 		return super().append(key, value, position)
 
 	@override

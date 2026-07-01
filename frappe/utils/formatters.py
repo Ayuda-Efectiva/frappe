@@ -104,7 +104,7 @@ def format_value(value, df=None, doc=None, currency=None, translated=False, form
 	elif df.get("fieldtype") == "Percent":
 		return f"{flt(value, 2)}%"
 
-	elif df.get("fieldtype") in ("Text", "Small Text"):
+	elif df.get("fieldtype") in ("Text", "Small Text", "Long Text"):
 		if not BLOCK_TAGS_PATTERN.search(value):
 			return frappe.safe_decode(value).replace("\n", "<br>")
 
@@ -141,7 +141,6 @@ def format_value(value, df=None, doc=None, currency=None, translated=False, form
 			meta = frappe.get_meta(df.parent)
 			_field = meta.get_field(df.options)
 			doctype = _field.options
-
 		return doc.__link_titles.get(f"{doctype}::{value}", value)
 
 	elif df.get("fieldtype") == "Select":

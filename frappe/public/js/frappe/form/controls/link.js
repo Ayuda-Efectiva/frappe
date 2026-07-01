@@ -375,7 +375,7 @@ frappe.ui.form.ControlLink = class ControlLink extends frappe.ui.form.ControlDat
 
 		this.$input.on("awesomplete-selectcomplete", function (e) {
 			let o = e.originalEvent;
-			if (o.text.value.indexOf("__link_option") !== -1) {
+			if (cstr(o.text.value).indexOf("__link_option") !== -1) {
 				me.$input.val("");
 			}
 		});
@@ -850,9 +850,13 @@ frappe.ui.form.ControlLink = class ControlLink extends frappe.ui.form.ControlDat
 	}
 
 	apply_link_field_filters() {
-		let link_filters = JSON.parse(this.df.link_filters);
-		let filters = this.parse_filters(link_filters);
+		let filters = this.parse_filters(JSON.parse(this.df.link_filters));
 		// take filters from the link field and add to the query
+		const query_filters = this.get_query?.()?.filters || {};
+		if (query_filters) {
+			filters = { ...query_filters, ...filters };
+		}
+
 		this.get_query = function () {
 			return {
 				filters,
@@ -886,6 +890,11 @@ frappe.ui.form.ControlLink = class ControlLink extends frappe.ui.form.ControlDat
 		}
 
 		return this.validate_link_and_fetch(value);
+	}
+	after_set_value() {
+		for (const target_field of Object.keys(this.fetch_map)) {
+			this.frm.refresh_field(target_field);
+		}
 	}
 	validate_link_and_fetch(value) {
 		const args = this.get_search_args(value);

@@ -25,6 +25,7 @@ class SystemSettings(Document):
 		allow_login_after_fail: DF.Int
 		allow_login_using_mobile_number: DF.Check
 		allow_login_using_user_name: DF.Check
+		allowed_doctypes_for_guest_uploads: DF.SmallText | None
 		allowed_file_extensions: DF.SmallText | None
 		app_name: DF.Data | None
 		apply_strict_user_permissions: DF.Check
@@ -201,6 +202,11 @@ class SystemSettings(Document):
 	def on_update(self):
 		self.set_defaults()
 		clear_system_settings_cache()
+
+		if not frappe.flags.in_setup_wizard and self.has_value_changed("enable_telemetry"):
+			from frappe.utils.telemetry.pulse.client import is_enabled as pulse_enabled
+
+			pulse_enabled.clear_cache()
 
 		if frappe.flags.update_last_reset_password_date:
 			update_last_reset_password_date()
