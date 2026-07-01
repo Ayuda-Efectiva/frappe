@@ -57,7 +57,10 @@ dependencies = [
     "premailer~=3.10.0",
     "psutil~=7.0.0",
     "psycopg2-binary~=2.9.11",
-    "pyOpenSSL~=26.0.0",
+# DFP: ./env/bin/pip install "pyOpenSSL~=25.3.0" "cryptography~=46.0.3" "Pillow~=12.2.0" "requests~=2.33.0"
+# DFP: TO SOLVE TEMPORAL ISSUE: OpenSSL/crypto.py (from the pyOpenSSL package) reaches into cryptography's internal OpenSSL bindings (_lib) for constants like GEN_EMAIL. Newer releases of cryptography (roughly 42+/44+) stripped out a lot of those legacy internal bindings that pyOpenSSL used to depend on. If you have an old pyOpenSSL paired with a newer cryptography, _lib.GEN_EMAIL no longer exists → AttributeError
+#    "pyOpenSSL~=26.0.0",
+    "pyOpenSSL>=25.3.0,<27",
     "pydantic~=2.12.5",
     "pyotp~=2.9.0",
     "python-dateutil~=2.9.0.post0",
