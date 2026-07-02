@@ -421,10 +421,20 @@ frappe.ui.Sidebar = class Sidebar {
 	is_route_in_sidebar() {
 		let match = false;
 		const that = this;
+		// <DFP
+		const safe_decode = (value) => {
+			try {
+				return decodeURIComponent(value);
+			} catch (e) {
+				// pass decodeURIComponent failure on a malformed URI (e.g. a raw "%" in the route)
+				return value;
+			}
+		};
+		// DFP>
 		$(".item-anchor").each(function () {
-			let href = decodeURIComponent($(this).attr("href")?.split("?")[0].split("#")[0]);
+			let href = safe_decode($(this).attr("href")?.split("?")[0].split("#")[0]); // DFP decodeURIComponent to safe_decode
 
-			const path = decodeURIComponent(window.location.pathname);
+			const path = safe_decode(window.location.pathname); // DFP decodeURIComponent to safe_decode
 
 			// ensure no trailing slash mismatch
 			const clean_href = href.replace(/\/$/, "");
