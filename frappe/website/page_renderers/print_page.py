@@ -14,8 +14,8 @@ class PrintPage(TemplatePage):
 			return False
 
 		# <DFP. Forzamos False
-		# TODO: eliminar a partir del 26.06.01 si no se loguea este error!
-		frappe.log_error(title="Cae aquí alguna vez? PrintPage(TemplatePage)->can_render")
+		# TODO: Hemos recibido alguna petición malintencionada a este endpoint; mejorar si lo necesitáramos;
+		frappe.log_error(title="PrintPage(TemplatePage)->can_render: forzamos False (no renderizar docs para imprimir)")
 		return False
 		# DFP>
 		return True
