@@ -206,16 +206,22 @@ frappe.ui.sidebar_item.TypeSectionBreak = class SectionBreakSidebarItem extends 
 	}
 	toggle() {
 		if (this.collapsed) {
-			this.$drop_icon
-				.attr("data-state", "closed")
-				.find("use")
-				.attr("href", "#icon-chevron-right");
+			if (this.$drop_icon) {
+				// DFP fix when no $drop_icon
+				this.$drop_icon
+					.attr("data-state", "closed")
+					.find("use")
+					.attr("href", "#icon-chevron-right");
+			}
 			$(this.$nested_items).addClass("hidden");
 		} else {
-			this.$drop_icon
-				.attr("data-state", "opened")
-				.find("use")
-				.attr("href", "#icon-chevron-down");
+			if (this.$drop_icon) {
+				// DFP fix when no $drop_icon
+				this.$drop_icon
+					.attr("data-state", "opened")
+					.find("use")
+					.attr("href", "#icon-chevron-down");
+			}
 			$(this.$nested_items).removeClass("hidden");
 		}
 	}

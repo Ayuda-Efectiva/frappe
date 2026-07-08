@@ -32,6 +32,11 @@ frappe.views.ReportView = class ReportView extends frappe.views.ListView {
 		if (this.report_name) {
 			return this.get_report_doc().then((doc) => {
 				this.report_doc = doc;
+				// <DFP: fix not defined json prop
+				if (!this.report_doc.json) {
+					this.report_doc.json = "{}";
+				}
+				// DFP>
 				this.report_doc.json = JSON.parse(this.report_doc.json);
 
 				this.filters = [
