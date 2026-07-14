@@ -33,7 +33,8 @@ def get_page_info_from_web_form(path):
 	"""Query published web forms and evaluate if the route matches"""
 	from frappe.website.doctype.web_form.web_form import get_published_web_forms
 
-	for d in get_published_web_forms():
+	# DFP for d in get_published_web_forms(): # returns None and is not iterable; maybe related to its @redis_cache(ttl=60 * 60) decorator
+	for d in get_published_web_forms() or []:
 		if not (path.startswith(f"{d.route}") or path.startswith(f"/{d.route}")):
 			continue
 
