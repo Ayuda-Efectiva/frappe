@@ -242,6 +242,9 @@ def parse_latest_non_beta_release(response: list, current_version: Version) -> l
 	version_list = [
 		release.get("tag_name").strip("v") for release in response if not release.get("prerelease")
 	]
+	# <DFP "Filter non-semver tags (e.g. '14-baseline') that crash Version() in prioritize_minor_update">
+	version_list = [v for v in version_list if v.count(".") >= 2 and v[0].isdigit()]
+	# DFP>
 
 	def prioritize_minor_update(v: str) -> Version:
 		target = Version(v)
