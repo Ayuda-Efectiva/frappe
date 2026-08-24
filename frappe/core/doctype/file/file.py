@@ -43,6 +43,8 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True  # nosemgrep
 
 URL_PREFIXES = ("http://", "https://", "/api/method/")
 FILE_ENCODING_OPTIONS = ("utf-8-sig", "utf-8", "windows-1250", "windows-1252")
+# OLE2 Compound File Binary signature, used by legacy .xls/.doc/.ppt files
+OLE_FILE_SIGNATURE = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
 
 
 class File(Document):
@@ -619,35 +621,66 @@ class File(Document):
 
 	def unzip(self) -> list["File"]:
 		"""Unzip current file and replace it by its children"""
+		from frappe.core.api.file import get_max_extract_size
+
 		if not self.file_url.endswith(".zip"):
 			frappe.throw(_("{0} is not a zip file").format(self.file_name))
 
 		zip_path = self.get_full_path()
+		max_extracted_size = get_max_extract_size()
 
 		files = []
+		total_extracted_size = 0
 		with zipfile.ZipFile(zip_path) as z:
-			for file in z.filelist:
-				if file.is_dir() or file.filename.startswith("__MACOSX/"):
-					# skip directories and macos hidden directory
-					continue
+			# skip directories, macos hidden directory & hidden files
+			members = [
+				file
+				for file in z.filelist
+				if not (file.is_dir() or file.filename.startswith("__MACOSX/"))
+				and not os.path.basename(file.filename).startswith(".")
+			]
 
-				filename = os.path.basename(file.filename)
-				if filename.startswith("."):
-					# skip hidden files
-					continue
+			# Reject on declared (central directory) sizes before reading any member,
+			# so a small, highly compressible archive can't force large reads/writes.
+			declared_total_size = sum(file.file_size for file in members)
+			if declared_total_size > max_extracted_size:
+				frappe.throw(
+					_("Zip file extracts to more than the maximum allowed size of {0} MB").format(
+						max_extracted_size // 1048576
+					)
+				)
 
-				file_doc = frappe.new_doc("File")
-				try:
-					file_doc.content = z.read(file.filename)
-				except zipfile.BadZipFile:
-					frappe.throw(_("{0} is a not a valid zip file").format(self.file_name))
-				file_doc.file_name = filename
-				file_doc.folder = self.folder
-				file_doc.is_private = self.is_private
-				file_doc.attached_to_doctype = self.attached_to_doctype
-				file_doc.attached_to_name = self.attached_to_name
-				file_doc.save()
-				files.append(file_doc)
+			try:
+				for file in members:
+					filename = os.path.basename(file.filename)
+
+					file_doc = frappe.new_doc("File")
+					try:
+						content = z.read(file.filename)
+					except zipfile.BadZipFile:
+						frappe.throw(_("{0} is a not a valid zip file").format(self.file_name))
+
+					total_extracted_size += len(content)
+					if total_extracted_size > max_extracted_size:
+						frappe.throw(
+							_("Zip file extracts to more than the maximum allowed size of {0} MB").format(
+								max_extracted_size // 1048576
+							)
+						)
+
+					file_doc.content = content
+					file_doc.file_name = filename
+					file_doc.folder = self.folder
+					file_doc.is_private = self.is_private
+					file_doc.attached_to_doctype = self.attached_to_doctype
+					file_doc.attached_to_name = self.attached_to_name
+					file_doc.save()
+					files.append(file_doc)
+			except Exception:
+				# roll back any children already persisted before the failure
+				for file_doc in files:
+					frappe.delete_doc("File", file_doc.name, ignore_permissions=True, force=True)
+				raise
 
 		frappe.delete_doc("File", self.name)
 		return files
@@ -659,6 +692,7 @@ class File(Document):
 		if self.is_folder:
 			frappe.throw(_("Cannot get file contents of a Folder"))
 
+		self.validate_file_path()
 		# if doc was just created, content field is already populated, return it as-is
 		if self.get("content"):
 			self._content = self.content
@@ -676,16 +710,17 @@ class File(Document):
 			encodings = FILE_ENCODING_OPTIONS
 		with open(file_path, mode="rb") as f:
 			self._content = f.read()
-			# looping will not result in slowdown, as the content is usually utf-8 or utf-8-sig
-			# encoded so the first iteration will be enough most of the time
-			for encoding in encodings:
-				try:
-					# read file with proper encoding
-					self._content = self._content.decode(encoding)
-					break
-				except UnicodeDecodeError:
-					# for .png, .jpg, etc
-					continue
+			if not self._content.startswith(OLE_FILE_SIGNATURE):
+				# looping will not result in slowdown, as the content is usually utf-8 or utf-8-sig
+				# encoded so the first iteration will be enough most of the time
+				for encoding in encodings:
+					try:
+						# read file with proper encoding
+						self._content = self._content.decode(encoding)
+						break
+					except UnicodeDecodeError:
+						# for .png, .jpg, etc
+						continue
 
 		return self._content
 
@@ -904,6 +939,10 @@ class File(Document):
 			content=original_content,
 			content_type=content_type,
 		)
+
+		if original_content == optimized_content:
+			# optimization failed, don't resave it
+			return
 
 		self.save_file(content=optimized_content, overwrite=True)
 		self.save()

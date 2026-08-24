@@ -217,31 +217,14 @@ frappe.views.Workspace = class Workspace {
 					route: "#",
 				});
 				if (!this.add_workspace_controls) {
-					let workspace_actions_button = this.page.add_action_icon("ellipsis", "", "");
-					$(workspace_actions_button).removeAttr("data-original-title");
-					$(workspace_actions_button).removeClass("btn-default");
+					this.workspace_actions_button = this.page.add_action_icon("ellipsis", "", "");
+					$(this.workspace_actions_button).removeAttr("data-original-title");
+					$(this.workspace_actions_button).removeClass("btn-default");
 					frappe.ui.create_menu({
-						parent: $(workspace_actions_button),
+						parent: $(this.workspace_actions_button),
 						open_on_left: true,
 						size: "fit-content",
-						menu_items: [
-							{
-								label: "Edit",
-								icon: "edit",
-								onClick: async () => {
-									if (!this.editor || !this.editor.readOnly) return;
-									this.is_read_only = false;
-									await this.editor.readOnly.toggle();
-									this.editor.isReady.then(() => {
-										this.setup_customization_buttons(this._page);
-										this.make_blocks_sortable();
-									});
-								},
-								condition: () => {
-									return current_page.is_editable;
-								},
-							},
-						],
+						menu_items: menu_items,
 					});
 					this.add_workspace_controls = true;
 				}
@@ -411,6 +394,7 @@ frappe.views.Workspace = class Workspace {
 				frappe.set_route(`workspace/${page.name}`);
 			});
 		}
+		$(this.workspace_actions_button).remove();
 		this.add_workspace_controls = false;
 	}
 

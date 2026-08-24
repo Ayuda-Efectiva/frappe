@@ -20,7 +20,7 @@ from frappe import _, is_whitelisted, msgprint
 from frappe.core.doctype.file.utils import relink_mismatched_files
 from frappe.core.doctype.server_script.server_script_utils import run_server_script_for_doc_event
 from frappe.database.utils import commit_after_response
-from frappe.desk.form.document_follow import follow_document
+from frappe.desk.form.document_follow import _follow_document
 from frappe.integrations.doctype.webhook import run_webhooks
 from frappe.model import optional_fields, table_fields
 from frappe.model.base_document import BaseDocument, D, get_controller
@@ -313,9 +313,25 @@ class Document(BaseDocument):
 
 		mask_fields = frappe.get_meta(self.doctype).get_masked_fields()
 
+		if mask_fields:
+			# Flag masked fields so get_valid_dict() does not cast the XXXXXXXX placeholder
+			# back to 0 for numeric fieldtypes when serializing the response.
+			self.flags.masked_fieldnames = {field.fieldname for field in mask_fields}
+
 		for field in mask_fields:
 			val = self.get(field.fieldname)
 			self.set(field.fieldname, mask_field_value(field, val))
+
+		for table_field in self.meta.get_table_fields():
+			child_mask_fields = frappe.get_meta(table_field.options).get_masked_fields()
+			if not child_mask_fields:
+				continue
+
+			masked_fieldnames = {field.fieldname for field in child_mask_fields}
+			for row in self.get(table_field.fieldname) or []:
+				row.flags.masked_fieldnames = masked_fieldnames
+				for field in child_mask_fields:
+					row.set(field.fieldname, mask_field_value(field, row.get(field.fieldname)))
 
 	def load_children_from_db(self):
 		is_doctype = self.doctype == "DocType"
@@ -398,17 +414,22 @@ class Document(BaseDocument):
 	def _handle_permission_failure(self, perm_type):
 		from frappe.permissions import check_doctype_permission
 
-		check_doctype_permission(self.doctype, perm_type)
+		parent_doctype = self.get("parenttype") if self.meta.istable else None
+		check_doctype_permission(parent_doctype or self.doctype, perm_type)
 		self.raise_no_permission_to(perm_type)
 
 	def raise_no_permission_to(self, perm_type):
 		"""Raise `frappe.PermissionError`."""
+		doctype, name = self.doctype, self.name
+		if self.meta.istable and self.get("parenttype"):
+			doctype, name = self.parenttype, self.parent
+
 		frappe.flags.error_message = _(
 			"You need the '{0}' permission on {1} {2} to perform this action."
 		).format(
 			_(perm_type),
-			frappe.bold(_(self.doctype)),
-			self.name or "",
+			frappe.bold(_(doctype)),
+			name or "",
 		)
 		raise frappe.PermissionError
 
@@ -500,7 +521,7 @@ class Document(BaseDocument):
 
 		if not (frappe.flags.in_migrate or frappe.local.flags.in_install or frappe.flags.in_setup_wizard):
 			if frappe.get_cached_value("User", frappe.session.user, "follow_created_documents"):
-				follow_document(self.doctype, self.name, frappe.session.user)
+				_follow_document(self.doctype, self.name, frappe.session.user)
 		return self
 
 	def check_if_locked(self):
@@ -970,7 +991,12 @@ class Document(BaseDocument):
 			return
 
 		mask_fields = self.meta.get_masked_fields()
-		if not mask_fields:
+		child_mask_fields = {
+			table_field.fieldname: masked
+			for table_field in self.meta.get_table_fields()
+			if (masked := frappe.get_meta(table_field.options).get_masked_fields())
+		}
+		if not mask_fields and not child_mask_fields:
 			return
 
 		# frappe.db.get_value() goes through the query builder which re-masks results for
@@ -979,6 +1005,16 @@ class Document(BaseDocument):
 		db_doc = frappe.get_doc(self.doctype, self.name)
 		for df in mask_fields:
 			self.set(df.fieldname, db_doc.get(df.fieldname))
+
+		for fieldname, masked in child_mask_fields.items():
+			db_rows = {row.name: row for row in db_doc.get(fieldname)}
+			for row in self.get(fieldname) or []:
+				db_row = db_rows.get(row.name)
+				# new rows have no DB counterpart — nothing to restore
+				if not db_row:
+					continue
+				for df in masked:
+					row.set(df.fieldname, db_row.get(df.fieldname))
 
 	def validate_higher_perm_levels(self):
 		"""If the user does not have permissions at permlevel > 0, then reset the values to original / default"""
@@ -1207,7 +1243,8 @@ class Document(BaseDocument):
 	def run_method(self, method: str, *args, **kwargs):
 		"""run standard triggers, plus those in hooks"""
 
-		assert not method.startswith("__"), "Run method is for hooks, avoid usage on internal methods"
+		if method.startswith("_"):
+			raise Exception("Run method is for hooks, avoid usage on internal methods")
 
 		def fn(self, *args, **kwargs):
 			method_object = getattr(self, method, None)
@@ -1334,7 +1371,7 @@ class Document(BaseDocument):
 		self.run_method("on_discard")
 
 	@frappe.whitelist()
-	def rename(self, name: str | int, merge=False, force=False, validate_rename=True):
+	def rename(self, name: str | int, merge: bool = False, force: bool = False, validate_rename: bool = True):
 		"""Rename the document to `name`. This transforms the current object."""
 		return self._rename(name=name, merge=merge, force=force, validate_rename=validate_rename)
 
@@ -1398,7 +1435,7 @@ class Document(BaseDocument):
 			return frappe.clear_last_message()
 
 		for fieldname in self._non_computed_table_fieldnames:
-			for row in self.get(fieldname):
+			for row in self.get(fieldname) or []:
 				row._doc_before_save = next(
 					(d for d in (self._doc_before_save.get(fieldname) or []) if d.name == row.name), None
 				)
@@ -1703,10 +1740,10 @@ class Document(BaseDocument):
 	@frappe.whitelist()
 	def add_comment(
 		self,
-		comment_type="Comment",
-		text=None,
-		comment_email=None,
-		comment_by=None,
+		comment_type: str = "Comment",
+		text: str | None = None,
+		comment_email: str | None = None,
+		comment_by: str | None = None,
 	):
 		"""Add a comment to this document.
 

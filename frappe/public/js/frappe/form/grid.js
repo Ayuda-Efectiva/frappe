@@ -204,7 +204,12 @@ export default class Grid {
 	}
 
 	setup_check() {
-		this.wrapper.on("click", ".grid-row-check", (e) => {
+		this.wrapper.on("click touchend", ".grid-row-check", (e) => {
+			if (e.type === "touchend") {
+				e.stopPropagation();
+				return;
+			}
+
 			const $check = $(e.currentTarget);
 			const checked = $check.prop("checked");
 			const is_select_all = $check.parents(".grid-heading-row:first").length !== 0;
@@ -706,9 +711,23 @@ export default class Grid {
 		}
 
 		this._apply_column_disp_overrides();
+		this._apply_mask_overrides();
 
 		this.docfields.forEach((df) => {
 			this.fields_map[df.fieldname] = df;
+		});
+	}
+
+	_apply_mask_overrides() {
+		const masked_fields = frappe.get_meta(this.doctype)?.masked_fields || [];
+		if (!masked_fields.length) return;
+
+		// Shallow copy so the shared `frappe.meta` docfield is not mutated. Render masked
+		// child fields as read-only Data so the grid shows the XXXXXXXX placeholder and the
+		// cell can't be edited inline, matching the form view (layout.init_field).
+		this.docfields = this.docfields.map((df) => {
+			if (!masked_fields.includes(df.fieldname)) return df;
+			return Object.assign({}, df, { read_only: 1, fieldtype: "Data" });
 		});
 	}
 
