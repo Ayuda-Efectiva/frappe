@@ -1,12 +1,15 @@
 # Copyright (c) 2022, Frappe Technologies Pvt. Ltd. and Contributors
 # License: MIT. Check LICENSE
 
+import pickle
 import time
 from collections import defaultdict
 from collections.abc import Callable
 from contextlib import suppress
 from functools import wraps
 from types import NoneType
+
+import redis.exceptions
 
 import frappe
 
@@ -194,8 +197,16 @@ def redis_cache(ttl: int | None = 3600, user: str | bool | None = None, shared: 
 
 			# Edge Case: None can mean two things: cache miss or the result itself is `None`
 			# RedisWrapper doesn't give us any way to handle this cleanly.
-			if frappe.cache.exists(func_call_key, user=user, shared=shared):
-				return None
+			# <DFP: an EXISTS after the miss races with a worker storing the value in between, and returned None
+			# for functions that never return it. One raw GET tells a stored `None` (pickled bytes) from a miss.
+			# if frappe.cache.exists(func_call_key, user=user, shared=shared):
+			# 	return None
+			raw_val = None
+			with suppress(redis.exceptions.ConnectionError):
+				raw_val = frappe.cache.get(frappe.cache.make_key(func_call_key, user=user, shared=shared))
+			if raw_val is not None:
+				return pickle.loads(raw_val)
+			# DFP>
 
 			val = func(*args, **kwargs)
 			ttl = getattr(func, "ttl", 3600)

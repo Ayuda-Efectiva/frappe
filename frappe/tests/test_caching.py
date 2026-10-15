@@ -1,5 +1,6 @@
+import pickle
 import time
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import frappe
 from frappe.core.doctype.doctype.test_doctype import new_doctype
@@ -225,6 +226,52 @@ class TestRedisCache(FrappeAPITestCase):
 		with self.set_user("Mathematician"):
 			self.assertEqual(calculate_area(1), PI)
 			self.assertEqual(function_call_count, 2)
+
+	# <DFP: redis_cache returned None when another worker stored the value right after our cache miss
+	def test_redis_cache_value_stored_by_another_worker_after_miss(self):
+		"""A value another worker stores between our miss and the follow-up read is returned, not None"""
+		function_call_count = 0
+
+		@redis_cache
+		def get_routes() -> list:
+			nonlocal function_call_count
+			function_call_count += 1
+			return ["computed here"]
+
+		get_routes.clear_cache()
+		get_value = frappe.cache.get_value
+
+		def get_value_then_another_worker_stores(key, *args, **kwargs):
+			val = get_value(key, *args, **kwargs)
+			if val is None:
+				# Straight to Redis: another worker does not write to our request-local cache
+				redis_key = frappe.cache.make_key(key, kwargs.get("user"), kwargs.get("shared", False))
+				frappe.cache.set(redis_key, pickle.dumps(["computed by another worker"]))
+			return val
+
+		with patch.object(frappe.cache, "get_value", get_value_then_another_worker_stores):
+			self.assertEqual(get_routes(), ["computed by another worker"])
+
+		self.assertEqual(function_call_count, 0)
+		get_routes.clear_cache()
+
+	def test_redis_cache_none_result_is_cached(self):
+		"""A function returning None is served from the cache after the first call"""
+		function_call_count = 0
+
+		@redis_cache
+		def find_nothing() -> None:
+			nonlocal function_call_count
+			function_call_count += 1
+
+		find_nothing.clear_cache()
+		self.assertIsNone(find_nothing())
+		frappe.local.cache.clear()
+		self.assertIsNone(find_nothing())
+		self.assertEqual(function_call_count, 1)
+		find_nothing.clear_cache()
+
+	# DFP>
 
 
 class TestDocumentCache(FrappeAPITestCase):
