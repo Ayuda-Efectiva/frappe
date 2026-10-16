@@ -964,17 +964,17 @@ def get_assets_json():
 		return assets
 
 	if not frappe.conf.developer_mode:
-		# # <DFP NOT USED SO COMMENTED!!
-		# TODO: DELETE AFTER 2026.06.01
-		# Disable redis cache for assets; Used CF for assets cache
-		# frappe.local.assets_json = _get_assets()
-		# return frappe.local.assets_json
-		# # DFP>
-		return frappe.client_cache.get_value(
-			"assets_json",
-			shared=True,
-			generator=_get_assets,
-		)
+		# <DFP: each process reads the assets.json of its own image, once per request, instead of the `assets_json` key every container shares in Redis.
+		# While two image versions coexist during a deploy, the shared key made a container request the bundles of the other version (ADR-0020).
+		if not hasattr(frappe.local, "assets_json"):
+			frappe.local.assets_json = _get_assets()
+		return frappe.local.assets_json
+		# return frappe.client_cache.get_value(
+		# 	"assets_json",
+		# 	shared=True,
+		# 	generator=_get_assets,
+		# )
+		# DFP>
 
 	else:
 		return _get_assets()
