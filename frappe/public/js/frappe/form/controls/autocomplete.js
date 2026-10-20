@@ -1,4 +1,4 @@
-import Awesomplete from "awesomplete";
+import Awesomplete from "../../ui/awesomplete";
 
 frappe.ui.form.ControlAutocomplete = class ControlAutoComplete extends frappe.ui.form.ControlData {
 	static trigger_change_on_input_event = false;
@@ -161,7 +161,7 @@ frappe.ui.form.ControlAutocomplete = class ControlAutoComplete extends frappe.ui
 
 		options = options.map((o) => {
 			if (typeof o !== "string") {
-				o.label = __(cstr(o.label));
+				o.label = __(cstr(o.label)) || cstr(o.value);
 				o.value = cstr(o.value);
 			}
 			return o;

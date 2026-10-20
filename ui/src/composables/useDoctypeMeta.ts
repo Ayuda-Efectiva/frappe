@@ -4,10 +4,20 @@ import { createResource, frappeRequest } from "frappe-ui";
 import type { RawMetaField } from "../components/FormLayout/types";
 import { memoizedState } from "../utils/sharedState";
 
+/** A DocPerm row as `getdoctype` returns it; booleans arrive as `0 | 1`. */
+export interface DocPermRow {
+  role: string;
+  permlevel?: number;
+  read?: 0 | 1;
+  write?: 0 | 1;
+  [right: string]: unknown;
+}
+
 export interface DoctypeMeta {
   name: string;
   title_field?: string;
   fields?: RawMetaField[];
+  permissions?: DocPermRow[];
 }
 
 interface GetDoctypeResponse {
@@ -40,7 +50,8 @@ const entries = memoizedState((doctype: string) => doctype, buildEntry);
 /**
  * Fetch a doctype's meta via `frappe.desk.form.load.getdoctype` (`with_parent: 1`)
  * and expose it as a name-keyed map plus the requested doctype's own meta.
- * Fetch-only — building the layout schema is `useDoctypeLayout`'s job.
+ * Fetch-only — building the layout schema is `buildLayoutFromMeta`'s job
+ * (or `joinLayout`'s, on the stored Form Layout path).
  */
 export function useDoctypeMeta(
   doctype: MaybeRefOrGetter<string>
