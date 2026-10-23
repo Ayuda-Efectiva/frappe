@@ -476,6 +476,74 @@ def delete_for_document(doc):
 	frappe.db.delete("__global_search", {"doctype": doc.doctype, "name": doc.name})
 
 
+# <DFP: desk global search, where LIKE picks the rows and full-text only orders them.
+# Full-text alone only finds a word by its beginning, so `uxeda` never found "Buxeda", and frappe put the typed
+# text inside its boolean query (MATCH in frappe/query_builder/custom.py sends `+<text>*`): an email lost its row
+# on `com`, an InnoDB stopword that is never indexed, and a leading + or - was a syntax error.
+# Both values are the InnoDB defaults, which our MariaDB servers keep.
+FULLTEXT_MIN_TOKEN_SIZE = 3  # innodb_ft_min_token_size
+FULLTEXT_STOPWORDS = frozenset(  # INFORMATION_SCHEMA.INNODB_FT_DEFAULT_STOPWORD
+	(
+		"a", "about", "an", "are", "as", "at", "be", "by", "com", "de", "en", "for", "from", "how", "i", "in",
+		"is", "it", "la", "of", "on", "or", "that", "the", "this", "to", "was", "what", "when", "where", "who",
+		"will", "with", "und", "www",
+	)
+)  # fmt: skip
+
+from pypika.terms import LiteralValue
+
+
+def search_words_anywhere(text: str, doctypes: list[str], start: int, limit: int) -> list[dict]:
+	"""Return the __global_search rows that hold every word of the text anywhere, the most relevant first.
+
+	A word with a leading - leaves out the rows that hold it. A leading +, the quotes and the * are dropped:
+	every word is already required, and LIKE already finds it anywhere, `uxeda` in "Buxeda" too.
+	LIKE reads the whole table, about 25 ms with 150,000 rows. Full-text only orders: the rows that hold a
+	word by its beginning come first, and the rest follow with rank 1, the lowest one search() keeps.
+	Only the words of the text reach MATCH, never the text itself, so nothing typed can break its syntax.
+	"""
+	global_search = frappe.qb.Table("__global_search")
+	words = [word.removeprefix("+") for word in re.sub(r'["*]', " ", text).split()]
+	include = [word for word in words if word and not word.startswith("-")]
+	exclude = [word[1:] for word in words if word.startswith("-") and len(word) > 1]
+	if not include:
+		return []
+
+	def anywhere(word):
+		return "%" + re.sub(r"([\\%_])", r"\\\1", word) + "%"
+
+	tokens = [
+		token
+		for word in include
+		for token in re.findall(r"\w+", word)
+		if len(token) >= FULLTEXT_MIN_TOKEN_SIZE and token.lower() not in FULLTEXT_STOPWORDS
+	]
+	rank = "1"
+	if tokens:
+		against = frappe.db.escape(" ".join(f"{token}*" for token in tokens))
+		rank = f"MATCH(`content`) AGAINST ({against} IN BOOLEAN MODE) + 1"
+
+	query = (
+		frappe.qb.from_(global_search)
+		.select(
+			global_search.doctype, global_search.name, global_search.content, LiteralValue(rank).as_("rank")
+		)
+		.where(global_search.doctype.isin(doctypes))
+		.orderby("rank", order=frappe.qb.desc)
+		.limit(limit)
+	)
+	for word in include:
+		query = query.where(global_search.content.like(anywhere(word)))
+	for word in exclude:
+		query = query.where(global_search.content.not_like(anywhere(word)))
+	if cint(start) > 0:
+		query = query.offset(start)
+	return query.run(as_dict=True)
+
+
+# DFP>
+
+
 @frappe.whitelist()
 def search(text: str, start: int = 0, limit: int = 20, doctype: str = ""):
 	"""
@@ -494,6 +562,12 @@ def search(text: str, start: int = 0, limit: int = 20, doctype: str = ""):
 	sorted_results = []
 
 	allowed_doctypes = set(get_doctypes_for_global_search()) & set(frappe.get_user().get_can_read())
+	# <DFP: back in the order of Global Search Settings, which the set loses: the results are grouped by
+	# priority at the end of this function, and with a set each process put the groups in its own order.
+	allowed_doctypes = list(
+		dict.fromkeys(d for d in get_doctypes_for_global_search() if d in allowed_doctypes)
+	)
+	# DFP>
 	if not allowed_doctypes or (doctype and doctype not in allowed_doctypes):
 		return []
 
@@ -502,9 +576,12 @@ def search(text: str, start: int = 0, limit: int = 20, doctype: str = ""):
 		if not word:
 			continue
 
-		# <DFP: fix for searching emails. More info: https://dev.mysql.com/doc/refman/8.0/en/fulltext-boolean.html InnoDB full-text search does not support the use of the @ symbol in boolean full-text searches. The @ symbol is reserved for use by the @distance proximity search operator.
-		word = re.sub(r"(?<=\S)@(?=\S)", "+", word)
-		word = word.replace("@", "")
+		# <DFP: LIKE picks the rows and full-text only orders them, see search_words_anywhere(). The rest of the
+		# loop is frappe's own search, left as it is upstream, and it no longer runs.
+		results.extend(
+			search_words_anywhere(word, [doctype] if doctype else list(allowed_doctypes), start, limit)
+		)
+		continue
 		# DFP>
 
 		global_search = frappe.qb.Table("__global_search")
