@@ -1139,6 +1139,11 @@ def _get_user_for_update_password(key, old_password):
 		frappe.local.login_manager.check_password(frappe.session.user, old_password)
 		user = frappe.session.user
 		result.user = user
+	# <DFP with neither a key nor an old password there is no user to update, and update_password died on res["user"] with KeyError: a 500 that writes an Error Log, from a method that allows guests and has no rate limit.
+	# Answered like a link that is not valid, a 410 that writes nothing; upstream develop turns the elif into an else, which instead writes a failed-login Activity Log on every such request.
+	else:
+		result.message = _("The reset password link has either been used before or is invalid")
+	# DFP>
 	return result
 
 
