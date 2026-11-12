@@ -442,13 +442,6 @@ def handle_exception(e):
 		# don't fail silently for non-json response errors
 		print(frappe.get_traceback())
 
-	# DFP: http_status_code must be applied to response!!
-	if response.status_code != http_status_code:
-		# response.status_code = http_status_code
-		# DELETE AFTER 26.01.01!!!! si no se loguea nunca este error
-		frappe.log_error(title=f"Debería aplicarse el http_status_code aquí?")
-		# DFP>
-
 	return response
 
 
