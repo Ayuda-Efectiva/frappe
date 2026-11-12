@@ -58,6 +58,8 @@ def make(
 	raw_html: int | bool = False,
 	add_css: int | bool = True,
 	in_reply_to: str | None = None,
+	print_style: str | None = None,
+	print_settings: str | dict | None = None,
 	**kwargs,
 ) -> dict[str, str]:
 	"""Make a new communication. Checks for email permissions for specified Document.
@@ -92,6 +94,8 @@ def make(
 
 	if doctype and name:
 		frappe.has_permission(doctype, doc=name, ptype="email", throw=True)
+	else:
+		frappe.has_permission("Communication", ptype="create", throw=True)
 
 	if letterhead:
 		frappe.has_permission("Letter Head", doc=letterhead, ptype="read", throw=True)
@@ -135,6 +139,8 @@ def make(
 		add_signature=False,
 		send_after=send_after,
 		print_language=print_language,
+		print_style=print_style,
+		print_settings=print_settings,
 		now=now,
 		raw_html=raw_html,
 		add_css=add_css,
@@ -171,6 +177,8 @@ def _make(
 	raw_html=False,
 	add_css=True,
 	in_reply_to=None,
+	print_style=None,
+	print_settings=None,
 ) -> dict[str, str]:
 	"""Internal method to make a new communication that ignores Permission checks."""
 
@@ -205,6 +213,8 @@ def _make(
 	comm.flags.skip_add_signature = not add_signature or (
 		raw_html and frappe.get_cached_value("Email Template", email_template, "use_html")
 	)
+	if cint(send_email) and not (recipients or cc or bcc):
+		frappe.throw(_("At least one recipient is required"))
 	comm.insert(ignore_permissions=True)
 
 	# if not committed, delayed task doesn't find the communication
@@ -229,6 +239,8 @@ def _make(
 			print_letterhead=print_letterhead,
 			letterhead=letterhead,
 			print_language=print_language,
+			print_style=print_style,
+			print_settings=print_settings,
 			now=now,
 			raw_html=raw_html,
 			add_css=add_css,

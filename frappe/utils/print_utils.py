@@ -11,7 +11,8 @@ EXECUTABLE_PATHS = {
 	"windows": ["chrome-win", "headless_shell.exe"],
 }
 
-GENERATOR_ENGINES = ("chrome", "Typst", "WeasyPrint")
+GENERATOR_ENGINES = ("chrome", "PlutoPrint", "Typst", "WeasyPrint")
+HTML_PDF_GENERATORS = ("chrome", "PlutoPrint")
 
 
 def _print_format_doc_or_none(print_format: str | None, doctype: str | None = None):
@@ -32,18 +33,36 @@ def _print_format_doc_or_none(print_format: str | None, doctype: str | None = No
 def resolve_pdf_generator(print_format=None, pdf_generator: str | None = None) -> str:
 	"""Pick the PDF engine for a render.
 
-	A builder format keeps its Typst or WeasyPrint choice and otherwise pins itself to
-	Chrome. Everything else honours an explicit choice, then the format's own setting."""
+	A builder format keeps its PlutoPrint, Typst or WeasyPrint choice and otherwise pins
+	itself to Chrome. Everything else honours an explicit choice, then the format's own
+	setting, then the site default in Print Settings. PlutoPrint falls back to Chrome for
+	a format it cannot render."""
 	from frappe.printing.doctype.print_format.classic_converter import uses_beta_renderer
+	from frappe.utils.pdf_generator.pluto import plutoprint_blockers
 
 	if print_format and uses_beta_renderer(print_format):
 		stored = print_format.get("pdf_generator")
 		if stored in ("Typst", "WeasyPrint"):
 			return stored
+		if stored == "PlutoPrint" and not plutoprint_blockers(print_format):
+			return stored
 		return "chrome"
-	if pdf_generator is not None:
-		return pdf_generator
-	return (print_format and print_format.get("pdf_generator")) or "wkhtmltopdf"
+	generator = pdf_generator
+	if generator is None:
+		generator = (
+			(print_format and print_format.get("pdf_generator"))
+			or frappe.db.get_single_value("Print Settings", "pdf_generator")
+			or "wkhtmltopdf"
+		)
+	if generator == "PlutoPrint" and plutoprint_blockers(print_format):
+		return "chrome"
+	return generator
+
+
+def _run_print_pdf_hooks(doctype, name, print_format):
+	for hook in frappe.get_hooks("on_print_pdf"):
+		# nosemgrep: frappe-semgrep-rules.rules.security.frappe-codeinjection-eval
+		frappe.call(hook, doctype=doctype, name=name, print_format=print_format)
 
 
 def renders_through_generator(print_format) -> bool:
@@ -69,7 +88,8 @@ def get_print(
 	password=None,
 	pdf_options=None,
 	letterhead=None,
-	pdf_generator: Literal["wkhtmltopdf", "chrome", "Typst", "WeasyPrint"] | None = None,
+	pdf_generator: Literal["wkhtmltopdf", "chrome", "PlutoPrint", "Typst", "WeasyPrint"] | None = None,
+	settings=None,
 ):
 	"""Get Print Format for given document.
 	:param doctype: DocType of document.
@@ -98,6 +118,10 @@ def get_print(
 	if not generator or (uses_beta_renderer(pf_doc) and generator not in GENERATOR_ENGINES):
 		generator = resolve_pdf_generator(pf_doc, pdf_generator)
 
+	settings = settings or local.form_dict.get("settings")
+	if as_pdf and generator == "wkhtmltopdf" and settings:
+		settings = {key: value for key, value in frappe.parse_json(settings).items() if key != "print_font"}
+
 	original_form_dict = copy.deepcopy(local.form_dict)
 	try:
 		local.form_dict.pdf_generator = generator
@@ -108,19 +132,23 @@ def get_print(
 		local.form_dict.doc = doc
 		local.form_dict.no_letterhead = no_letterhead
 		local.form_dict.letterhead = letterhead
+		local.form_dict.settings = settings
 
 		pdf_options = pdf_options or {}
 		if password:
 			pdf_options["password"] = password
 
-		if as_pdf and generator == "chrome" and pf_doc and uses_beta_renderer(pf_doc):
+		if as_pdf and generator in (*HTML_PDF_GENERATORS, "Typst") and pf_doc and uses_beta_renderer(pf_doc):
 			from frappe.core.doctype.access_log.access_log import make_access_log
 			from frappe.model.document import Document
 			from frappe.www.printview import validate_print
 
 			doc_obj = doc if isinstance(doc, Document) else frappe.get_doc(doctype, name)
 			validate_print(doc_obj)
-			pdf = _render_builder_pdf(pf_doc, doc_obj, letterhead, no_letterhead, password, style)
+			_run_print_pdf_hooks(doctype, name, print_format)
+			pdf = _render_builder_pdf(
+				pf_doc, doc_obj, letterhead, no_letterhead, pdf_options.get("password"), style, settings
+			)
 			make_access_log(
 				doctype=doc_obj.doctype,
 				document=doc_obj.name,
@@ -151,6 +179,7 @@ def get_print(
 				doc=doc,
 				letterhead=letterhead,
 				no_letterhead=no_letterhead,
+				settings=settings,
 				generator=None,
 			)
 			try:
@@ -183,19 +212,27 @@ def get_print(
 			finally:
 				restore_print_context(previous)
 
-		for hook in frappe.get_hooks("on_print_pdf"):
-			frappe.call(hook, doctype=doctype, name=name, print_format=print_format)
+		_run_print_pdf_hooks(doctype, name, print_format)
 
 		return get_pdf(html, options=pdf_options, output=output)
 	finally:
 		local.form_dict = original_form_dict
 
 
-def _render_builder_pdf(print_format, doc, letterhead, no_letterhead, password=None, style=None):
+def _render_builder_pdf(
+	print_format, doc, letterhead, no_letterhead, password=None, style=None, settings=None
+):
 	"""PDF of a builder format through its own renderer, which applies the format's margins."""
 	from frappe.utils.print_format_generator import PrintFormatGenerator
 
-	generator = PrintFormatGenerator(print_format, doc, letterhead, style=style, no_letterhead=no_letterhead)
+	generator = PrintFormatGenerator(
+		print_format,
+		doc,
+		letterhead,
+		style=style,
+		settings=frappe.parse_json(settings) if settings else None,
+		no_letterhead=no_letterhead,
+	)
 	return generator.render_pdf(password=password)
 
 
@@ -211,6 +248,7 @@ def attach_print(
 	print_letterhead=True,
 	password=None,
 	letterhead=None,
+	settings=None,
 ):
 	from frappe.translate import print_language
 	from frappe.utils import scrub_urls
@@ -224,6 +262,7 @@ def attach_print(
 		no_letterhead=not print_letterhead,
 		letterhead=letterhead,
 		password=password,
+		settings=settings,
 	)
 
 	frappe.local.flags.ignore_print_permissions = True
@@ -243,6 +282,7 @@ def attach_print(
 
 					doc_obj = doc or frappe.get_cached_doc(doctype, name)
 					validate_print_for_docstatus(doc_obj)
+					_run_print_pdf_hooks(doctype, name, print_format)
 					letterhead_name = letterhead if print_letterhead else None
 					if uses_legacy_weasyprint(pf_doc):
 						from frappe.utils.weasyprint import legacy_generator
@@ -256,8 +296,23 @@ def attach_print(
 						)
 					else:
 						content = _render_builder_pdf(
-							pf_doc, doc_obj, letterhead_name, not print_letterhead, password
+							pf_doc,
+							doc_obj,
+							letterhead_name,
+							not print_letterhead,
+							password,
+							style=style,
+							settings=settings,
 						)
+					from frappe.core.doctype.access_log.access_log import make_access_log
+
+					make_access_log(
+						doctype=doc_obj.doctype,
+						document=doc_obj.name,
+						file_type="PDF",
+						method="Print",
+						page=f"Print Format: {pf_doc.name}",
+					)
 				else:
 					kwargs["as_pdf"] = True
 					content = get_print(doctype, name, **kwargs)
@@ -441,11 +496,7 @@ def get_chromium_download_url():
 		"win64": "%s/win64/chrome-headless-shell-win64.zip",
 	}
 	linux_arm_download_path = {
-		"ubuntu20.04-arm64": "%s/chromium-headless-shell-linux-arm64.zip",
-		"ubuntu22.04-arm64": "%s/chromium-headless-shell-linux-arm64.zip",
-		"ubuntu24.04-arm64": "%s/chromium-headless-shell-linux-arm64.zip",
-		"debian11-arm64": "%s/chromium-headless-shell-linux-arm64.zip",
-		"debian12-arm64": "%s/chromium-headless-shell-linux-arm64.zip",
+		"linux-arm64": "%s/chromium-headless-shell-linux-arm64.zip",
 	}
 
 	platform_key = calculate_platform()
@@ -508,29 +559,7 @@ def calculate_platform():
 
 	# Handle Linux ARM-specific logic
 	if system == "linux" and arch == "aarch64":
-		distro_info = get_linux_distribution_info()
-		distro_id = distro_info.get("id", "")
-		version = distro_info.get("version", "")
-		major_version = int(version.split(".")[0]) if version else 0
-
-		if distro_id == "ubuntu":
-			if major_version < 20:
-				return "ubuntu18.04-arm64"
-			if major_version < 22:
-				return "ubuntu20.04-arm64"
-			if major_version < 24:
-				return "ubuntu22.04-arm64"
-			if major_version < 26:
-				return "ubuntu24.04-arm64"
-			return "<unknown>"
-
-		if distro_id in ["debian", "raspbian"]:
-			if major_version < 11:
-				return "debian10-arm64"
-			if major_version < 12:
-				return "debian11-arm64"
-			return "debian12-arm64"
-		return "<unknown>"
+		return "linux-arm64"
 
 	# Handle other platforms
 	elif system == "linux" and arch == "x86_64":

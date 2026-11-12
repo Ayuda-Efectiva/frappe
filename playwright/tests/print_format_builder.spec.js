@@ -1035,6 +1035,24 @@ test.describe("Print Format Builder — draft and Save & Apply", () => {
 });
 
 test.describe("Print Format form — renderer notice", () => {
+	let default_generator;
+
+	test.beforeEach(async ({ api }) => {
+		const r = await api.call("frappe.client.get_value", {
+			doctype: "Print Settings",
+			filters: "Print Settings",
+			fieldname: "pdf_generator",
+		});
+		default_generator = r.message.pdf_generator;
+		await api.set_value("Print Settings", "Print Settings", { pdf_generator: "wkhtmltopdf" });
+	});
+
+	test.afterEach(async ({ api }) => {
+		await api.set_value("Print Settings", "Print Settings", {
+			pdf_generator: default_generator,
+		});
+	});
+
 	test("treats an empty renderer on a classic format as wkhtmltopdf", async ({ page, api }) => {
 		await api.insert_doc(
 			"Print Format",
@@ -1053,9 +1071,12 @@ test.describe("Print Format form — renderer notice", () => {
 		await api.set_value("Print Format", PF_NAME, { pdf_generator: "" });
 
 		await page.goto(`/desk/print-format/${encodeURIComponent(PF_NAME)}`);
-		const notice = page.locator(".form-message:visible");
-		await expect(notice).toContainText("classic builder will be removed");
-		await expect(notice).toContainText("wkhtmltopdf is deprecated");
+		await expect(page.locator(".form-message:visible")).toContainText(
+			"classic builder will be removed"
+		);
+		await expect(
+			page.locator('[data-fieldname="pdf_generator"] .help-box:visible')
+		).toContainText("removed in version 17");
 	});
 });
 

@@ -2,6 +2,8 @@ import { safe_href } from "../../ui/components/utils.js";
 
 frappe.provide("frappe.views");
 
+frappe.views.kanban_system_fields = ["owner", "creation", "modified", "modified_by"];
+
 // badge style per Select value (lowercase keys); unknown values get a guessed color
 const SELECT_STYLES = {
 	low: { theme: "gray", icon: "signal-low" },
@@ -470,10 +472,25 @@ frappe.views.KanbanV2Page = class KanbanV2Page {
 		});
 	}
 
+	/** True for a doctype field or a supported system field. */
+	field_exists(fieldname) {
+		return Boolean(this.field_df(fieldname));
+	}
+
+	/** Docfield for a fieldname, falling back to the standard field definition. */
+	field_df(fieldname) {
+		return (
+			frappe.meta.get_docfield(this.doctype, fieldname) ||
+			(frappe.views.kanban_system_fields.includes(fieldname)
+				? frappe.model.get_std_field(fieldname, true)
+				: null)
+		);
+	}
+
 	compute_card_fields(meta) {
 		const configured = (this.board_doc.card_fields || [])
 			.map((f) => f.fieldname)
-			.filter((fn) => fn && frappe.meta.has_field(this.doctype, fn));
+			.filter((fn) => fn && this.field_exists(fn));
 		const list = configured.length ? configured : this.default_card_fieldnames(meta);
 		// title, image and column field are shown elsewhere on the card
 		return list.filter(
@@ -528,7 +545,7 @@ frappe.views.KanbanV2Page = class KanbanV2Page {
 	compute_preview_fields(meta) {
 		const configured = (this.board_doc.preview_fields || [])
 			.map((f) => f.fieldname)
-			.filter((fn) => fn && frappe.meta.has_field(this.doctype, fn));
+			.filter((fn) => fn && this.field_exists(fn));
 		const preview_api = this.default_preview_fieldnames(meta);
 		const list = configured.length
 			? configured
@@ -734,7 +751,7 @@ frappe.views.KanbanV2Page = class KanbanV2Page {
 			(this.filters || []).forEach(([, fn, cond, val]) => {
 				if (!set.has(fn)) return;
 				const field = this.page.fields_dict[fn];
-				if (!field) return;
+				if (!field || !this.fits_quick_filter(field, cond)) return;
 				let v = val;
 				if (cond === "like" && typeof v === "string") v = v.replace(/^%+|%+$/g, "");
 				field.df.match_type = cond === "like" ? "like" : "=";
@@ -743,6 +760,12 @@ frappe.views.KanbanV2Page = class KanbanV2Page {
 		} finally {
 			this._seeding_quick = false;
 		}
+	}
+
+	/** A box shows its value as "=" or "like"; other conditions stay popover filters. */
+	fits_quick_filter(field, condition) {
+		if (condition === "like") return field.df.fieldtype !== "Link";
+		return condition === "=";
 	}
 
 	get_quick_filters() {
@@ -768,11 +791,13 @@ frappe.views.KanbanV2Page = class KanbanV2Page {
 		return out;
 	}
 
-	/** A quick filter replaces a popover filter on the same field only when it has a value. */
+	/** A quick filter replaces a popover filter it can hold on the same field, only when it has a value. */
 	get_effective_filters(extra) {
 		const quick = this.get_quick_filters();
 		const active = new Set(quick.map((f) => f[1]));
-		const base = (this.filters || []).filter((f) => !active.has(f[1]));
+		const base = (this.filters || []).filter(
+			(f) => !active.has(f[1]) || !this.fits_quick_filter(this.page.fields_dict[f[1]], f[2])
+		);
 		const eff = base.concat(quick);
 		return extra && extra.length ? eff.concat(extra) : eff;
 	}
@@ -1200,7 +1225,7 @@ frappe.views.KanbanV2Page = class KanbanV2Page {
 		rows.appendChild(this.title_row(card));
 
 		for (const fieldname of this.card_field_list) {
-			const df = frappe.meta.get_docfield(this.doctype, fieldname);
+			const df = this.field_df(fieldname);
 			if (df) rows.appendChild(this.field_row(card, df));
 		}
 		el.appendChild(rows);
@@ -1655,7 +1680,7 @@ frappe.views.KanbanV2Page = class KanbanV2Page {
 
 		// a rich-text preview field would repeat the description
 		const preview_has_rich_text = this.preview_field_list.some((fn) => {
-			const df = frappe.meta.get_docfield(this.doctype, fn);
+			const df = this.field_df(fn);
 			return df && this.is_rich_text(df.fieldtype);
 		});
 		if (this.desc_field && !preview_has_rich_text) {
@@ -1666,7 +1691,7 @@ frappe.views.KanbanV2Page = class KanbanV2Page {
 		const short_fields = [];
 		const rich_fields = [];
 		for (const fn of this.preview_field_list) {
-			const df = frappe.meta.get_docfield(this.doctype, fn);
+			const df = this.field_df(fn);
 			if (!df) continue;
 			if (this.is_rich_text(df.fieldtype)) {
 				rich_fields.push({ fn, df });

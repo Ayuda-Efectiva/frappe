@@ -177,7 +177,14 @@ frappe.views.ListView = class ListView extends frappe.views.BaseList {
 	validate_filters(filters) {
 		let valid_fields = this.meta.fields.map((df) => df.fieldname);
 		valid_fields = valid_fields.concat(frappe.model.std_fields_list);
-		return filters.filter((f) => valid_fields.includes(f[1])).uniqBy((f) => f[1]);
+		const table_doctypes = frappe.meta.get_table_fields(this.doctype).map((df) => df.options);
+		return filters
+			.filter(
+				(f) =>
+					valid_fields.includes(f[1]) ||
+					(table_doctypes.includes(f[0]) && frappe.meta.has_field(f[0], f[1]))
+			)
+			.uniqBy((f) => `${f[0]}.${f[1]}`);
 	}
 
 	setup_page() {
@@ -1259,6 +1266,10 @@ frappe.views.ListView = class ListView extends frappe.views.BaseList {
 				${__(subject_field.label)}
 			</span>
 		`;
+		const layout = this.list_filter?.get_active_layout();
+		const can_resize = layout
+			? this.list_filter.can_edit_layout(layout)
+			: frappe.user.has_role("System Manager");
 		let $columns = this.columns
 			.map((col) => {
 				let classes = [
@@ -1281,7 +1292,7 @@ frappe.views.ListView = class ListView extends frappe.views.BaseList {
 
 				const headerFieldname = col.type === "Status" ? "status_field" : col.df?.fieldname;
 				const resizeHandle =
-					headerFieldname && col.type !== "Tag"
+					can_resize && headerFieldname && col.type !== "Tag"
 						? `<div class="list-col-resize-handle"></div>`
 						: "";
 				return `<div class="${classes}" data-fieldname="${headerFieldname}">${html}${resizeHandle}</div>
@@ -1649,7 +1660,9 @@ frappe.views.ListView = class ListView extends frappe.views.BaseList {
 					style = `background-color: var(${color[0]}); color: var(${color[1]})`;
 				}
 
-				return `<div class="tag-pill ellipsis" title="${tag}" style="${style}">${tag}</div>`;
+				return `<div class="tag-pill ellipsis" title="${frappe.utils.escape_html(
+					tag
+				)}" style="${style}">${tag}</div>`;
 			}
 		};
 		user_tags = (user_tags || "").split(",");
@@ -2444,10 +2457,8 @@ frappe.views.ListView = class ListView extends frappe.views.BaseList {
 	}
 
 	on_row_checked() {
-		this.$list_head_subject =
-			this.$list_head_subject || this.$result.find("header .list-header-subject");
-		this.$checkbox_actions =
-			this.$checkbox_actions || this.$result.find("header .checkbox-actions");
+		this.$list_head_subject = this.$result.find("header .list-header-subject");
+		this.$checkbox_actions = this.$result.find("header .checkbox-actions");
 
 		// checked_docnames = full selection across all rows; $checks = only what's in the DOM right now.
 		const checked_count = this.checked_docnames.size;
